@@ -1,0 +1,26 @@
+# Secrets -- never commit real API keys
+.env
+
+# Raw / derived data (large, regenerable via preprocess.py + build_product_index.py)
+*.parquet
+/meta_Electronics.json
+/reviews_Electronics.json
+_meta_Electronics.clean.jsonl
+electronicsRar/
+
+# Runtime cache and pyabsa model checkpoints (regenerated automatically on first run)
+*.sqlite3
+checkpoints/
+checkpoints.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Editor/OS cruft
+.vscode/
+.idea/
+Thumbs.db

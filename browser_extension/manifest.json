@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Amazon Ürün İçgörü Aracı",
+  "version": "1.0.0",
+  "description": "Kişisel kullanım: açık olan Amazon ürün sayfasındaki yorumları okuyup aspect-bazlı olumlu/olumsuz özet çıkarır. Amazon'a ekstra istek göndermez, sadece zaten yüklenmiş sayfayı okur.",
+  "permissions": ["activeTab", "scripting"],
+  "host_permissions": ["http://127.0.0.1:5057/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Amazon Ürün İçgörü Aracı"
+  }
+}
