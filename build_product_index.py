@@ -9,15 +9,12 @@ Run once (re-run only if processed_full_dataset.parquet changes):
 
 import sys
 import time
-from pathlib import Path
 
 import polars as pl
 
-sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+from config import FULL_DATASET_PATH, PRODUCT_INDEX_PATH
 
-BASE_DIR = Path(__file__).resolve().parent
-FULL_DATASET_PATH = BASE_DIR / "processed_full_dataset.parquet"
-PRODUCT_INDEX_PATH = BASE_DIR / "product_index.parquet"
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 
 def main():

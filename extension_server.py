@@ -19,8 +19,10 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 from insight_engine import analyze_reviews_direct
+from logging_config import get_logger
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+logger = get_logger(__name__)
 
 app = Flask(__name__)
 CORS(app)  # extension origin (chrome-extension://...) needs cross-origin access
@@ -43,14 +45,15 @@ def analyze():
     if not reviews:
         return jsonify({"error": "no reviews provided"}), 400
 
-    print(f"[extension] Analyze request: asin={asin} title={title!r} reviews={len(reviews)}")
+    logger.info("Analyze request: asin=%s title=%r reviews=%d", asin, title, len(reviews))
 
     try:
         result = analyze_reviews_direct(asin, title, reviews, progress=print)
     except ValueError as exc:
+        logger.warning("Analyze request rejected for asin=%s: %s", asin, exc)
         return jsonify({"error": str(exc)}), 400
     except Exception as exc:
-        print(f"[extension] ERROR: {type(exc).__name__}: {exc}")
+        logger.exception("Analyze request failed for asin=%s", asin)
         return jsonify({"error": f"{type(exc).__name__}: {exc}"}), 500
 
     return jsonify({
@@ -67,5 +70,5 @@ def analyze():
 
 
 if __name__ == "__main__":
-    print("[extension_server] Starting on http://127.0.0.1:5057 ...")
+    logger.info("Starting on http://127.0.0.1:5057 ...")
     app.run(host="127.0.0.1", port=5057, debug=False)

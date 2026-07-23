@@ -17,44 +17,36 @@ Pipeline for a single ASIN:
 """
 
 import json
+import logging
 import os
 import re
 import sqlite3
 import time
-from pathlib import Path
 
 import polars as pl
 import torch
 from dotenv import load_dotenv
 from google import genai
 from pyabsa import ATEPCCheckpointManager
+from tenacity import before_sleep_log, retry, stop_after_attempt, wait_exponential
+
+from config import (
+    BATCH_SIZE,
+    CACHE_DB_PATH,
+    CHECKPOINT,
+    DEVICE,
+    FULL_DATASET_PATH,
+    GEMINI_MAX_RETRIES,
+    GEMINI_MODEL,
+    MAX_REVIEWS_PER_PRODUCT,
+    PRODUCT_INDEX_PATH,
+    RANDOM_SEED,
+    SYNONYM_MAP,
+)
+from logging_config import get_logger
 
 load_dotenv()
-
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-BASE_DIR = Path(__file__).resolve().parent
-FULL_DATASET_PATH = BASE_DIR / "processed_full_dataset.parquet"
-PRODUCT_INDEX_PATH = BASE_DIR / "product_index.parquet"
-CACHE_DB_PATH = BASE_DIR / "product_insights_cache.sqlite3"
-
-CHECKPOINT = "english"
-BATCH_SIZE = 16
-DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
-GEMINI_MODEL = "gemini-flash-latest"
-
-MAX_REVIEWS_PER_PRODUCT = 500  # bounds worst-case latency for very popular ASINs
-RANDOM_SEED = 42
-
-# Same mapping used in eda_analysis.py -- keeps aggregation consistent
-# between the sample-level EDA and the on-demand per-product tool.
-SYNONYM_MAP = {
-    "install": "installation",
-    "cable": "charger",
-    "cables": "charger",
-    "ipad": "tablet",
-}
+logger = get_logger(__name__)
 
 _extractor = None  # lazy-loaded, reused across calls within one process
 
@@ -83,6 +75,7 @@ def init_cache_db() -> sqlite3.Connection:
     # Migrate DBs created before insight_text_tr existed.
     existing_cols = {row[1] for row in conn.execute("PRAGMA table_info(product_cache)")}
     if "insight_text_tr" not in existing_cols:
+        logger.info("Migrating %s: adding insight_text_tr column", CACHE_DB_PATH.name)
         conn.execute("ALTER TABLE product_cache ADD COLUMN insight_text_tr TEXT")
     conn.commit()
     return conn
@@ -149,6 +142,8 @@ def _safe_predict_chunk(extractor, texts, progress=_noop):
     try:
         return extractor.predict(texts, print_result=False, save_result=False, pred_sentiment=True)
     except Exception as exc:
+        logger.warning("ATEPC batch of %d failed (%s: %s); retrying rows individually",
+                        len(texts), type(exc).__name__, exc)
         progress(f"Batch of {len(texts)} failed ({type(exc).__name__}: {exc}); retrying rows individually")
         if DEVICE == "cuda:0":
             torch.cuda.empty_cache()
@@ -158,6 +153,7 @@ def _safe_predict_chunk(extractor, texts, progress=_noop):
                 r = extractor.predict([text], print_result=False, save_result=False, pred_sentiment=True)
                 results.append(r[0])
             except Exception as exc2:
+                logger.warning("ATEPC row failed individually (%s: %s), skipping", type(exc2).__name__, exc2)
                 progress(f"Row failed individually ({type(exc2).__name__}: {exc2}), skipping")
                 results.append(None)
         return results
@@ -247,9 +243,23 @@ Respond in EXACTLY this format, both parts required, no other text before or aft
 EN: <the insight in English>
 TR: <the same insight translated into natural Turkish>"""
 
+    return parse_bilingual_insight(_call_gemini(prompt))
+
+
+@retry(
+    stop=stop_after_attempt(GEMINI_MAX_RETRIES),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    before_sleep=before_sleep_log(logger, logging.WARNING),
+    reraise=True,
+)
+def _call_gemini(prompt: str) -> str:
+    """Isolated so retry/backoff wraps only the network call, not prompt
+    construction. Transient failures (rate limits, 5xx, network blips) are
+    retried with exponential backoff; a persistent failure re-raises after
+    GEMINI_MAX_RETRIES attempts rather than silently swallowing the error."""
     client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
     response = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
-    return parse_bilingual_insight(response.text.strip())
+    return response.text.strip()
 
 
 def parse_bilingual_insight(raw: str) -> dict:

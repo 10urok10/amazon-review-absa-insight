@@ -16,12 +16,10 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
+from config import DEVICE, SENTIMENT_COLORS, SENTIMENT_ORDER
 from insight_engine import get_or_compute_insight, search_products
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-
-SENTIMENT_COLORS = {"Positive": "#0ca30c", "Neutral": "#898781", "Negative": "#d03b3b"}
-SENTIMENT_ORDER = ["Positive", "Neutral", "Negative"]
 
 st.set_page_config(page_title="Amazon Ürün İçgörü Aracı", page_icon="🔍", layout="centered")
 
@@ -144,4 +142,4 @@ with st.sidebar:
         "çıkarılır → Gemini ile doğal dil özeti üretilir → sonuç cache'e yazılır"
     )
     st.markdown("---")
-    st.caption(f"Model device: {__import__('insight_engine').DEVICE}")
+    st.caption(f"Model device: {DEVICE}")

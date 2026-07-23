@@ -9,6 +9,7 @@ that touches pyabsa inference or the Gemini API is out of scope here.
 
 import json
 import sqlite3
+from unittest.mock import MagicMock, patch
 
 import polars as pl
 import pytest
@@ -84,6 +85,52 @@ def test_parse_bilingual_insight_missing_format_falls_back_to_raw_as_english():
     result = ie.parse_bilingual_insight(raw)
     assert result["english"] == raw
     assert result["turkish"] == ""
+
+
+# ---------------------------------------------------------------------------
+# _call_gemini retry/backoff -- mocked client, no real network call
+# ---------------------------------------------------------------------------
+def _mock_genai_client(response_text):
+    mock_response = MagicMock()
+    mock_response.text = response_text
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = mock_response
+    return mock_client
+
+
+def test_call_gemini_retries_transient_failure_then_succeeds(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    call_count = {"n": 0}
+
+    def flaky_generate_content(*args, **kwargs):
+        call_count["n"] += 1
+        if call_count["n"] < 3:
+            raise RuntimeError("transient 503")
+        mock_response = MagicMock()
+        mock_response.text = "EN: ok\nTR: tamam"
+        return mock_response
+
+    mock_client = MagicMock()
+    mock_client.models.generate_content.side_effect = flaky_generate_content
+
+    with patch.object(ie.genai, "Client", return_value=mock_client):
+        result = ie._call_gemini.retry_with(wait=ie.wait_exponential(multiplier=0, min=0, max=0))(
+            "any prompt"
+        )
+    assert result == "EN: ok\nTR: tamam"
+    assert call_count["n"] == 3
+
+
+def test_call_gemini_raises_after_max_retries(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    mock_client = MagicMock()
+    mock_client.models.generate_content.side_effect = RuntimeError("persistent failure")
+
+    with patch.object(ie.genai, "Client", return_value=mock_client):
+        retrying_fn = ie._call_gemini.retry_with(wait=ie.wait_exponential(multiplier=0, min=0, max=0))
+        with pytest.raises(RuntimeError, match="persistent failure"):
+            retrying_fn("any prompt")
+    assert mock_client.models.generate_content.call_count == ie.GEMINI_MAX_RETRIES
 
 
 # ---------------------------------------------------------------------------

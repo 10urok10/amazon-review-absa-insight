@@ -8,10 +8,14 @@
 _meta_Electronics.clean.jsonl
 electronicsRar/
 
-# Runtime cache and pyabsa model checkpoints (regenerated automatically on first run)
+# Runtime cache, logs, and pyabsa model checkpoints (regenerated automatically on first run)
 *.sqlite3
+app.log
 checkpoints/
 checkpoints.json
+
+# pytest
+.pytest_cache/
 
 # Python
 __pycache__/

@@ -29,15 +29,25 @@ python build_product_index.py     # processed_full_dataset.parquet -> product_in
 python analyze_product.py --asin B0001234 [--force-refresh]   # CLI
 streamlit run app.py                                            # web UI (search by product title)
 python extension_server.py                                      # local backend for browser_extension/ (port 5057)
+
+# Tests
+pip install -r requirements-dev.txt
+pytest -v
 ```
 
-There is no test suite, linter, or build step configured yet.
+No linter or build step configured yet. `app.log` (console + file, via `logging_config.get_logger`)
+holds operational diagnostics (retries, cache migrations, exceptions); it's separate from the
+`progress` callback used for user-facing pipeline narration in the CLI/Streamlit/extension UIs.
 
 ## Architecture
 
 **`insight_engine.py` is the single shared backend** -- every front end (CLI, Streamlit, browser
 extension) calls into it rather than duplicating pipeline logic. When changing the ABSA/caching/LLM
-pipeline, edit it there once; do not re-implement per front end.
+pipeline, edit it there once; do not re-implement per front end. Shared constants (paths, model names,
+`SYNONYM_MAP`, sentiment colors) live in `config.py`, imported by `insight_engine.py`, `app.py`, and
+`build_product_index.py` rather than redefined per file. The Gemini call (`_call_gemini` in
+`insight_engine.py`) is wrapped with `tenacity` retry/backoff (`GEMINI_MAX_RETRIES` in `config.py`) for
+transient failures.
 
 Pipeline for one product (`get_or_compute_insight` for a known ASIN, or `analyze_reviews_direct` for
 reviews supplied directly by the browser extension):
