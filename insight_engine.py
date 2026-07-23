@@ -107,13 +107,13 @@ def get_cached(conn: sqlite3.Connection, asin: str):
 # Product search (reads the small precomputed index, not the 7.8M-row dataset)
 # ---------------------------------------------------------------------------
 def search_products(keyword: str, limit: int = 20) -> list[dict]:
+    keyword = keyword.strip()
+    if not keyword:
+        return []
     if not PRODUCT_INDEX_PATH.exists():
         raise FileNotFoundError(
             f"{PRODUCT_INDEX_PATH.name} not found. Run build_product_index.py first."
         )
-    keyword = keyword.strip()
-    if not keyword:
-        return []
     matches = (
         pl.scan_parquet(PRODUCT_INDEX_PATH)
         .filter(pl.col("title").str.to_lowercase().str.contains(keyword.lower(), literal=True))
@@ -185,8 +185,17 @@ def run_absa(reviews_df: pl.DataFrame, progress=_noop) -> dict:
             results_by_row[row_idx] = result
     progress(f"ABSA inference done in {time.perf_counter() - t0:.1f}s")
 
+    return aggregate_aspect_stats(results_by_row)
+
+
+def aggregate_aspect_stats(results: list) -> dict:
+    """Pure aggregation step, split out of run_absa so it's testable without a
+    GPU or the pyabsa model: takes a list of pyabsa result dicts (or None for
+    rows that failed/were skipped) and folds them into
+    {aspect: {"Positive": n, "Neutral": n, "Negative": n}}, applying
+    SYNONYM_MAP so near-duplicate aspect terms are counted once."""
     aspect_stats = {}
-    for result in results_by_row:
+    for result in results:
         if result is None:
             continue
         aspects = result.get("aspect") or []
@@ -240,8 +249,14 @@ TR: <the same insight translated into natural Turkish>"""
 
     client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
     response = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
-    raw = response.text.strip()
+    return parse_bilingual_insight(response.text.strip())
 
+
+def parse_bilingual_insight(raw: str) -> dict:
+    """Pure parsing step, split out of generate_insight_text so the EN:/TR:
+    parsing logic is testable without calling the Gemini API. Falls back to
+    treating the whole response as English if the model didn't follow the
+    requested format."""
     en_match = re.search(r"EN:\s*(.+?)(?=\n\s*TR:|\Z)", raw, re.DOTALL)
     tr_match = re.search(r"TR:\s*(.+)", raw, re.DOTALL)
     english = en_match.group(1).strip() if en_match else raw
