@@ -13,6 +13,9 @@ pyarrow==24.0.0
 openpyxl==3.1.5
 
 pyabsa==2.4.3
+# pyabsa's metric_visualizer dependency breaks on update-checker>=1.0 (its
+# UpdateChecker.check() signature changed) -- pin below that.
+update-checker<1.0
 
 matplotlib==3.10.9
 seaborn==0.13.2
