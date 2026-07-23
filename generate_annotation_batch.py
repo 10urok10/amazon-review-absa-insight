@@ -53,9 +53,7 @@ def stratified_sample() -> pl.DataFrame:
     """Equal-sized sample per star rating, so the gold set isn't skewed
     toward the mostly-positive rating distribution real Amazon reviews have."""
     print(f"[sample] Reading {FULL_DATASET_PATH.name}")
-    full_df = pl.scan_parquet(FULL_DATASET_PATH).select(
-        ["asin", "overall", "reviewText", "title"]
-    ).collect()
+    full_df = pl.scan_parquet(FULL_DATASET_PATH).select(["asin", "overall", "reviewText", "title"]).collect()
     print(f"[sample] {full_df.height:,} total rows available")
 
     parts = []
@@ -63,8 +61,10 @@ def stratified_sample() -> pl.DataFrame:
         bucket = full_df.filter(pl.col("overall") == star)
         n = min(N_PER_RATING, bucket.height)
         if n < N_PER_RATING:
-            print(f"[warn] only {bucket.height} rows at overall={star}, "
-                  f"using all of them instead of {N_PER_RATING}")
+            print(
+                f"[warn] only {bucket.height} rows at overall={star}, "
+                f"using all of them instead of {N_PER_RATING}"
+            )
         parts.append(bucket.sample(n=n, seed=RANDOM_SEED, shuffle=True))
 
     sampled = pl.concat(parts)
@@ -72,8 +72,10 @@ def stratified_sample() -> pl.DataFrame:
     # anchored by seeing 40 five-star reviews in a row, etc.
     sampled = sampled.sample(fraction=1.0, seed=RANDOM_SEED, shuffle=True)
     sampled = sampled.with_row_index("review_id")
-    print(f"[sample] Stratified sample: {sampled.height} rows "
-          f"({N_PER_RATING} per rating x {len(STAR_RATINGS)} ratings)")
+    print(
+        f"[sample] Stratified sample: {sampled.height} rows "
+        f"({N_PER_RATING} per rating x {len(STAR_RATINGS)} ratings)"
+    )
     return sampled
 
 
@@ -88,8 +90,9 @@ def safe_predict_chunk(extractor, texts):
     try:
         return extractor.predict(texts, print_result=False, save_result=False, pred_sentiment=True)
     except Exception as exc:
-        print(f"[warn] batch of {len(texts)} failed ({type(exc).__name__}: {exc}); "
-              f"retrying rows individually")
+        print(
+            f"[warn] batch of {len(texts)} failed ({type(exc).__name__}: {exc}); retrying rows individually"
+        )
         if DEVICE == "cuda:0":
             torch.cuda.empty_cache()
         results = []
@@ -131,11 +134,10 @@ def main():
     texts = sampled["reviewText"].to_list()
 
     raw_results = [None] * len(texts)
-    print(f"[infer] Running ATEPC inference on {len(texts):,} reviews "
-          f"(batch_size={BATCH_SIZE})...")
+    print(f"[infer] Running ATEPC inference on {len(texts):,} reviews (batch_size={BATCH_SIZE})...")
     t0 = time.perf_counter()
     for start in range(0, len(texts), BATCH_SIZE):
-        chunk_texts = texts[start:start + BATCH_SIZE]
+        chunk_texts = texts[start : start + BATCH_SIZE]
         chunk_results = safe_predict_chunk(extractor, chunk_texts)
         for i, result in enumerate(chunk_results):
             raw_results[start + i] = result
@@ -154,24 +156,28 @@ def main():
     n_with_aspects = sum(1 for v in predicted_json if v is not None)
     print(f"[result] {n_with_aspects}/{len(texts)} rows have >=1 predicted aspect")
 
-    annotation_df = pd.DataFrame({
-        "review_id": review_ids,
-        "asin": sampled["asin"].to_list(),
-        "overall": sampled["overall"].to_list(),
-        "reviewText": texts,
-        "predicted_aspects_json": predicted_json,
-        "human_verdict": ["" for _ in texts],
-        "corrected_aspects_json": ["" for _ in texts],
-        "notes": ["" for _ in texts],
-    })
+    annotation_df = pd.DataFrame(
+        {
+            "review_id": review_ids,
+            "asin": sampled["asin"].to_list(),
+            "overall": sampled["overall"].to_list(),
+            "reviewText": texts,
+            "predicted_aspects_json": predicted_json,
+            "human_verdict": ["" for _ in texts],
+            "corrected_aspects_json": ["" for _ in texts],
+            "notes": ["" for _ in texts],
+        }
+    )
 
     annotation_df.to_excel(OUTPUT_XLSX_PATH, index=False, engine="openpyxl")
     print(f"[write] Annotation workbook -> {OUTPUT_XLSX_PATH.name}")
 
     total = time.perf_counter() - t_start
     print(f"\nTotal execution time: {total:.1f}s")
-    print("\nNext step: open annotation_batch.xlsx, follow annotation_guidelines.md, "
-          "fill in human_verdict (+ corrected_aspects_json where needed) for all rows.")
+    print(
+        "\nNext step: open annotation_batch.xlsx, follow annotation_guidelines.md, "
+        "fill in human_verdict (+ corrected_aspects_json where needed) for all rows."
+    )
 
 
 if __name__ == "__main__":

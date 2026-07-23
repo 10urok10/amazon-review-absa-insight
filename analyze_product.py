@@ -26,7 +26,9 @@ def print_report(result: dict) -> None:
     print("-" * 70)
     print("[EN]", result["insight_text"])
     print()
-    print("[TR]", result.get("insight_text_tr") or "(not available -- run with --force-refresh to regenerate)")
+    print(
+        "[TR]", result.get("insight_text_tr") or "(not available -- run with --force-refresh to regenerate)"
+    )
     print("=" * 70)
 
 

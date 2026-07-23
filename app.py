@@ -44,6 +44,7 @@ if query:
     if not results:
         st.info("Eşleşen ürün bulunamadı, farklı bir anahtar kelime dene.")
     else:
+
         def _label(r):
             title = r["title"] if len(r["title"]) <= 90 else r["title"][:90] + "..."
             return f"{title}  —  {r['review_count']} yorum, {r['avg_rating']:.1f}★"
@@ -119,7 +120,9 @@ if "last_result" in st.session_state:
                 y=alt.Y("aspect:N", sort=top_aspects, title=None),
                 color=alt.Color(
                     "sentiment:N",
-                    scale=alt.Scale(domain=SENTIMENT_ORDER, range=[SENTIMENT_COLORS[s] for s in SENTIMENT_ORDER]),
+                    scale=alt.Scale(
+                        domain=SENTIMENT_ORDER, range=[SENTIMENT_COLORS[s] for s in SENTIMENT_ORDER]
+                    ),
                     legend=alt.Legend(title="Sentiment"),
                 ),
                 order=alt.Order("sentiment_rank:Q"),

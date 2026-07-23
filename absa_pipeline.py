@@ -45,9 +45,9 @@ OUTPUT_PATH = BASE_DIR / "absa_sample_results.parquet"
 
 MODEL_NAME = "yangheng/deberta-v3-base-absa-v1.1"
 N_ROWS = 100
-MAX_ASPECTS_PER_REVIEW = 5   # cap aspects/review so one long review can't blow up the batch
-BATCH_SIZE = 16              # (review, aspect) pairs per forward pass -- lower if you hit OOM
-MAX_LENGTH = 512             # hard token cap; texts are truncated, never crash on overflow
+MAX_ASPECTS_PER_REVIEW = 5  # cap aspects/review so one long review can't blow up the batch
+BATCH_SIZE = 16  # (review, aspect) pairs per forward pass -- lower if you hit OOM
+MAX_LENGTH = 512  # hard token cap; texts are truncated, never crash on overflow
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -57,8 +57,7 @@ def load_spacy_model():
         return spacy.load("en_core_web_sm", disable=["ner", "lemmatizer"])
     except OSError as exc:
         raise SystemExit(
-            "spaCy model 'en_core_web_sm' is not installed. Run:\n"
-            "    python -m spacy download en_core_web_sm"
+            "spaCy model 'en_core_web_sm' is not installed. Run:\n    python -m spacy download en_core_web_sm"
         ) from exc
 
 
@@ -91,7 +90,7 @@ def classify_pairs(tokenizer, model, pairs, batch_size=BATCH_SIZE):
     """
     labels = [None] * len(pairs)
     for start in range(0, len(pairs), batch_size):
-        chunk = pairs[start:start + batch_size]
+        chunk = pairs[start : start + batch_size]
         sentences = [p[0] for p in chunk]
         aspects = [p[1] for p in chunk]
         try:
@@ -150,8 +149,10 @@ def main():
         try:
             token_len = len(tokenizer(text, truncation=False)["input_ids"])
             if token_len > MAX_LENGTH:
-                print(f"[warn] row {row_idx}: reviewText has {token_len} tokens "
-                      f"(> {MAX_LENGTH}), will be truncated")
+                print(
+                    f"[warn] row {row_idx}: reviewText has {token_len} tokens "
+                    f"(> {MAX_LENGTH}), will be truncated"
+                )
             per_row_aspects.append(extract_aspect_candidates(nlp, text))
         except Exception as exc:
             print(f"[warn] row {row_idx}: aspect extraction failed ({exc}), skipping")
@@ -163,11 +164,11 @@ def main():
         for aspect in aspects:
             flat_pairs.append((row_idx, aspect, text))
 
-    print(f"[infer] Classifying {len(flat_pairs):,} (review, aspect) pairs "
-          f"(batch_size={BATCH_SIZE})...")
+    print(f"[infer] Classifying {len(flat_pairs):,} (review, aspect) pairs (batch_size={BATCH_SIZE})...")
     t0 = time.perf_counter()
     sentiments = classify_pairs(
-        tokenizer, model,
+        tokenizer,
+        model,
         [(text, aspect) for _, aspect, text in flat_pairs],
     )
     print(f"[infer] Done in {time.perf_counter() - t0:.1f}s")
@@ -177,9 +178,7 @@ def main():
     for (row_idx, aspect, _), sentiment in zip(flat_pairs, sentiments):
         results[row_idx][aspect] = sentiment
 
-    df = df.with_columns(
-        pl.Series("aspect_sentiments", [json.dumps(r, ensure_ascii=False) for r in results])
-    )
+    df = df.with_columns(pl.Series("aspect_sentiments", [json.dumps(r, ensure_ascii=False) for r in results]))
 
     df.write_parquet(OUTPUT_PATH)
     print(f"[write] Results -> {OUTPUT_PATH.name}")

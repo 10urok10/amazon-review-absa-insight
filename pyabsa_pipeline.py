@@ -63,8 +63,9 @@ def safe_predict_chunk(extractor, texts):
     try:
         return extractor.predict(texts, print_result=False, save_result=False, pred_sentiment=True)
     except Exception as exc:
-        print(f"[warn] batch of {len(texts)} failed ({type(exc).__name__}: {exc}); "
-              f"retrying rows individually")
+        print(
+            f"[warn] batch of {len(texts)} failed ({type(exc).__name__}: {exc}); retrying rows individually"
+        )
         if DEVICE == "cuda:0":
             torch.cuda.empty_cache()
         results = []
@@ -130,12 +131,11 @@ def main():
     # any other unexpected failure.
     results_by_row = [None] * len(raw_texts)
 
-    print(f"[infer] Running ATEPC inference on {len(valid_texts):,} reviews "
-          f"(batch_size={BATCH_SIZE})...")
+    print(f"[infer] Running ATEPC inference on {len(valid_texts):,} reviews (batch_size={BATCH_SIZE})...")
     t0 = time.perf_counter()
     for start in range(0, len(valid_texts), BATCH_SIZE):
-        chunk_texts = valid_texts[start:start + BATCH_SIZE]
-        chunk_indices = valid_indices[start:start + BATCH_SIZE]
+        chunk_texts = valid_texts[start : start + BATCH_SIZE]
+        chunk_indices = valid_indices[start : start + BATCH_SIZE]
         chunk_results = safe_predict_chunk(extractor, chunk_texts)
         for row_idx, result in zip(chunk_indices, chunk_results):
             results_by_row[row_idx] = result

@@ -48,8 +48,7 @@ def convert_meta_to_ndjson(src: Path, dst: Path) -> None:
     """
     print(f"[meta] Converting Python-literal dump -> valid NDJSON: {src.name} -> {dst.name}")
     n_ok, n_skipped = 0, 0
-    with src.open("r", encoding="utf-8", errors="replace") as fin, \
-         dst.open("w", encoding="utf-8") as fout:
+    with src.open("r", encoding="utf-8", errors="replace") as fin, dst.open("w", encoding="utf-8") as fout:
         for line in fin:
             line = line.strip()
             if not line:
@@ -59,10 +58,14 @@ def convert_meta_to_ndjson(src: Path, dst: Path) -> None:
             except (ValueError, SyntaxError):
                 n_skipped += 1
                 continue
-            fout.write(json.dumps({
-                "asin": record.get("asin"),
-                "title": record.get("title"),
-            }))
+            fout.write(
+                json.dumps(
+                    {
+                        "asin": record.get("asin"),
+                        "title": record.get("title"),
+                    }
+                )
+            )
             fout.write("\n")
             n_ok += 1
     print(f"[meta] Done: {n_ok:,} records converted, {n_skipped:,} malformed lines skipped.")
@@ -126,8 +129,10 @@ def main() -> None:
     t0 = time.perf_counter()
     joined_df.write_parquet(FULL_OUTPUT_PATH)
     size_mb = FULL_OUTPUT_PATH.stat().st_size / 1e6
-    print(f"[write] Full dataset -> {FULL_OUTPUT_PATH.name} ({size_mb:.1f} MB) "
-          f"in {time.perf_counter() - t0:.1f}s")
+    print(
+        f"[write] Full dataset -> {FULL_OUTPUT_PATH.name} ({size_mb:.1f} MB) "
+        f"in {time.perf_counter() - t0:.1f}s"
+    )
 
     # Step 6: randomly sample 50,000 rows for local dev / inference testing.
     sample_size = min(SAMPLE_SIZE, joined_df.height)

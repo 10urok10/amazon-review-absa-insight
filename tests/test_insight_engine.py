@@ -147,8 +147,14 @@ def test_init_cache_db_creates_full_schema(temp_cache_db):
     conn = ie.init_cache_db()
     cols = {row[1] for row in conn.execute("PRAGMA table_info(product_cache)")}
     assert {
-        "asin", "title", "review_count", "avg_rating", "aspect_stats_json",
-        "insight_text", "insight_text_tr", "created_at",
+        "asin",
+        "title",
+        "review_count",
+        "avg_rating",
+        "aspect_stats_json",
+        "insight_text",
+        "insight_text_tr",
+        "created_at",
     } <= cols
     conn.close()
 
@@ -179,9 +185,13 @@ def test_get_cached_roundtrip(temp_cache_db):
             insight_text, insight_text_tr, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
         (
-            "B000TEST01", "Test Product", 5, 4.2,
+            "B000TEST01",
+            "Test Product",
+            5,
+            4.2,
             json.dumps({"battery": {"Positive": 2, "Neutral": 0, "Negative": 3}}),
-            "English insight", "Türkçe içgörü",
+            "English insight",
+            "Türkçe içgörü",
         ),
     )
     conn.commit()
@@ -204,12 +214,14 @@ def test_get_cached_returns_none_for_missing_asin(temp_cache_db):
 @pytest.fixture
 def temp_product_index(tmp_path, monkeypatch):
     index_path = tmp_path / "test_product_index.parquet"
-    pl.DataFrame({
-        "asin": ["A1", "A2", "A3"],
-        "title": ["Wireless Bluetooth Speaker", "USB Wall Charger", "Bluetooth Headphones"],
-        "review_count": [10, 500, 50],
-        "avg_rating": [4.5, 3.8, 4.1],
-    }).write_parquet(index_path)
+    pl.DataFrame(
+        {
+            "asin": ["A1", "A2", "A3"],
+            "title": ["Wireless Bluetooth Speaker", "USB Wall Charger", "Bluetooth Headphones"],
+            "review_count": [10, 500, 50],
+            "avg_rating": [4.5, 3.8, 4.1],
+        }
+    ).write_parquet(index_path)
     monkeypatch.setattr(ie, "PRODUCT_INDEX_PATH", index_path)
     return index_path
 

@@ -32,7 +32,7 @@ XLSX_PATH = BASE_DIR / "annotation_batch.xlsx"
 RAW_JSONL_PATH = BASE_DIR / "annotation_batch_raw.jsonl"
 
 VALID_VERDICTS = {
-    "": "correct",       # Enter alone -> correct (fast path for the common case)
+    "": "correct",  # Enter alone -> correct (fast path for the common case)
     "c": "correct",
     "p": "partial",
     "i": "incorrect",
@@ -94,8 +94,10 @@ def safe_save(df):
             df.drop(columns=["_confidence"]).to_excel(XLSX_PATH, index=False, engine="openpyxl")
             return
         except PermissionError:
-            input(f"\n[!] {XLSX_PATH.name} başka bir programda açık görünüyor "
-                  f"(muhtemelen Excel). Dosyayı kapat ve devam etmek için Enter'a bas... ")
+            input(
+                f"\n[!] {XLSX_PATH.name} başka bir programda açık görünüyor "
+                f"(muhtemelen Excel). Dosyayı kapat ve devam etmek için Enter'a bas... "
+            )
 
 
 def format_predicted(value):
@@ -126,8 +128,10 @@ def main():
 
     total = len(df)
     already_done = total - len(pending)
-    print(f"[start] {already_done}/{total} already annotated, {len(pending)} remaining "
-          f"(sorted lowest-confidence-first)\n")
+    print(
+        f"[start] {already_done}/{total} already annotated, {len(pending)} remaining "
+        f"(sorted lowest-confidence-first)\n"
+    )
 
     if pending.empty:
         print("Her satır zaten etiketlenmiş. build_gold_standard.py çalıştırılabilir.")
@@ -136,9 +140,11 @@ def main():
     done_this_session = 0
     for idx, row in pending.iterrows():
         print("=" * 80)
-        print(f"[{already_done + done_this_session + 1}/{total}] review_id={row['review_id']} "
-              f"asin={row['asin']} overall={row['overall']} "
-              f"(model confidence: {row['_confidence']:.3f})")
+        print(
+            f"[{already_done + done_this_session + 1}/{total}] review_id={row['review_id']} "
+            f"asin={row['asin']} overall={row['overall']} "
+            f"(model confidence: {row['_confidence']:.3f})"
+        )
         print("-" * 80)
         print(row["reviewText"])
         print("-" * 80)
@@ -146,12 +152,20 @@ def main():
         print()
 
         while True:
-            choice = input("[Enter]=doğru  p=partial  i=incorrect  n=aspect yok  "
-                           "m=hepsi kaçmış  s=atla  q=kaydet&çık: ").strip().lower()
+            choice = (
+                input(
+                    "[Enter]=doğru  p=partial  i=incorrect  n=aspect yok  "
+                    "m=hepsi kaçmış  s=atla  q=kaydet&çık: "
+                )
+                .strip()
+                .lower()
+            )
             if choice == "q":
                 safe_save(df)
-                print(f"\n[saved] {done_this_session} satır bu oturumda tamamlandı. "
-                      f"Toplam: {already_done + done_this_session}/{total}")
+                print(
+                    f"\n[saved] {done_this_session} satır bu oturumda tamamlandı. "
+                    f"Toplam: {already_done + done_this_session}/{total}"
+                )
                 return
             if choice == "s":
                 break
@@ -160,7 +174,9 @@ def main():
                 df.at[idx, "human_verdict"] = verdict
                 if verdict in NEEDS_CORRECTION:
                     corrected = prompt_correction()
-                    df.at[idx, "corrected_aspects_json"] = json.dumps(corrected, ensure_ascii=False) if corrected else ""
+                    df.at[idx, "corrected_aspects_json"] = (
+                        json.dumps(corrected, ensure_ascii=False) if corrected else ""
+                    )
                 else:
                     df.at[idx, "corrected_aspects_json"] = ""
                 done_this_session += 1

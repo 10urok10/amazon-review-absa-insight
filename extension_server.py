@@ -56,17 +56,19 @@ def analyze():
         logger.exception("Analyze request failed for asin=%s", asin)
         return jsonify({"error": f"{type(exc).__name__}: {exc}"}), 500
 
-    return jsonify({
-        "asin": result["asin"],
-        "title": result["title"],
-        "review_count": result["review_count"],
-        "avg_rating": result["avg_rating"],
-        "insight_text": result["insight_text"],
-        "insight_text_tr": result.get("insight_text_tr"),
-        "aspect_stats": result["aspect_stats"],
-        "from_cache": result["from_cache"],
-        "created_at": result["created_at"],
-    })
+    return jsonify(
+        {
+            "asin": result["asin"],
+            "title": result["title"],
+            "review_count": result["review_count"],
+            "avg_rating": result["avg_rating"],
+            "insight_text": result["insight_text"],
+            "insight_text_tr": result.get("insight_text_tr"),
+            "aspect_stats": result["aspect_stats"],
+            "from_cache": result["from_cache"],
+            "created_at": result["created_at"],
+        }
+    )
 
 
 if __name__ == "__main__":

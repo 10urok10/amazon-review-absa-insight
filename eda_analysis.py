@@ -37,13 +37,14 @@ def check_dependencies():
     missing = [p for p in REQUIRED_ALWAYS if not _has(p)]
     if missing:
         raise SystemExit(
-            "Missing required packages: " + ", ".join(missing) +
-            "\nInstall with: pip install " + " ".join(missing)
+            "Missing required packages: "
+            + ", ".join(missing)
+            + "\nInstall with: pip install "
+            + " ".join(missing)
         )
     if not any(_has(p) for p in PARQUET_ENGINES):
         raise SystemExit(
-            "No parquet engine found (need pyarrow or fastparquet).\n"
-            "Install with: pip install pyarrow"
+            "No parquet engine found (need pyarrow or fastparquet).\nInstall with: pip install pyarrow"
         )
     engine = next(p for p in PARQUET_ENGINES if _has(p))
     print(f"[check] pandas/matplotlib/seaborn OK, parquet engine: {engine}")
@@ -78,7 +79,7 @@ SYNONYM_MAP = {
 # validated for contrast on a light chart surface.
 SENTIMENT_COLORS = {
     "Positive": "#0ca30c",  # status: good
-    "Neutral": "#898781",   # neutral gray
+    "Neutral": "#898781",  # neutral gray
     "Negative": "#d03b3b",  # status: critical
 }
 SENTIMENT_ORDER = ["Positive", "Neutral", "Negative"]  # fixed stacking order, every bar
@@ -117,8 +118,10 @@ def main():
 
     # Step: drop null rows (no aspects found for that review).
     non_null = df[col].dropna()
-    print(f"[flatten] {len(non_null):,}/{len(df):,} rows have aspect data "
-          f"({len(df) - len(non_null):,} null rows dropped)")
+    print(
+        f"[flatten] {len(non_null):,}/{len(df):,} rows have aspect data "
+        f"({len(df) - len(non_null):,} null rows dropped)"
+    )
 
     # Step: explode each {aspect: sentiment} dict into its own (aspect, sentiment)
     # row, lowercasing the aspect and folding it through SYNONYM_MAP so related
@@ -134,8 +137,10 @@ def main():
             records.append((aspect_norm, sentiment))
 
     flat_df = pd.DataFrame(records, columns=["aspect", "sentiment"])
-    print(f"[flatten] Exploded into {len(flat_df):,} aspect-sentiment pairs "
-          f"(synonym-mapped: {sorted(set(SYNONYM_MAP.values()))})")
+    print(
+        f"[flatten] Exploded into {len(flat_df):,} aspect-sentiment pairs "
+        f"(synonym-mapped: {sorted(set(SYNONYM_MAP.values()))})"
+    )
 
     if flat_df.empty:
         raise SystemExit("No aspect-sentiment pairs found after flattening; nothing to plot.")
@@ -190,7 +195,11 @@ def main():
     ax.set_ylabel("")
     ax.set_title(
         f"Top {TOP_N} Aspects by Mention Count, Split by Sentiment (Synonym-Mapped)",
-        color=PRIMARY_INK, fontsize=14, fontweight="bold", pad=14, loc="left",
+        color=PRIMARY_INK,
+        fontsize=14,
+        fontweight="bold",
+        pad=14,
+        loc="left",
     )
 
     ax.tick_params(colors=SECONDARY_INK, labelsize=10)
@@ -202,12 +211,23 @@ def main():
     # Direct total labels at the end of each bar.
     max_total = max(totals)
     for i, total in enumerate(totals):
-        ax.text(total + max_total * 0.01, i, f"{int(total)}",
-                 va="center", ha="left", color=SECONDARY_INK, fontsize=9)
+        ax.text(
+            total + max_total * 0.01,
+            i,
+            f"{int(total)}",
+            va="center",
+            ha="left",
+            color=SECONDARY_INK,
+            fontsize=9,
+        )
 
     legend = ax.legend(
-        title="Sentiment", loc="lower right", frameon=False,
-        labelcolor=PRIMARY_INK, fontsize=10, title_fontsize=10,
+        title="Sentiment",
+        loc="lower right",
+        frameon=False,
+        labelcolor=PRIMARY_INK,
+        fontsize=10,
+        title_fontsize=10,
     )
     legend.get_title().set_color(PRIMARY_INK)
 

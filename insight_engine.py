@@ -89,9 +89,17 @@ def get_cached(conn: sqlite3.Connection, asin: str):
     ).fetchone()
     if row is None:
         return None
-    cols = ["asin", "title", "review_count", "avg_rating", "aspect_stats_json",
-            "insight_text", "insight_text_tr", "created_at"]
-    result = dict(zip(cols, row))
+    cols = [
+        "asin",
+        "title",
+        "review_count",
+        "avg_rating",
+        "aspect_stats_json",
+        "insight_text",
+        "insight_text_tr",
+        "created_at",
+    ]
+    result = dict(zip(cols, row, strict=True))
     result["aspect_stats"] = json.loads(result["aspect_stats_json"])
     return result
 
@@ -104,9 +112,7 @@ def search_products(keyword: str, limit: int = 20) -> list[dict]:
     if not keyword:
         return []
     if not PRODUCT_INDEX_PATH.exists():
-        raise FileNotFoundError(
-            f"{PRODUCT_INDEX_PATH.name} not found. Run build_product_index.py first."
-        )
+        raise FileNotFoundError(f"{PRODUCT_INDEX_PATH.name} not found. Run build_product_index.py first.")
     matches = (
         pl.scan_parquet(PRODUCT_INDEX_PATH)
         .filter(pl.col("title").str.to_lowercase().str.contains(keyword.lower(), literal=True))
@@ -142,8 +148,12 @@ def _safe_predict_chunk(extractor, texts, progress=_noop):
     try:
         return extractor.predict(texts, print_result=False, save_result=False, pred_sentiment=True)
     except Exception as exc:
-        logger.warning("ATEPC batch of %d failed (%s: %s); retrying rows individually",
-                        len(texts), type(exc).__name__, exc)
+        logger.warning(
+            "ATEPC batch of %d failed (%s: %s); retrying rows individually",
+            len(texts),
+            type(exc).__name__,
+            exc,
+        )
         progress(f"Batch of {len(texts)} failed ({type(exc).__name__}: {exc}); retrying rows individually")
         if DEVICE == "cuda:0":
             torch.cuda.empty_cache()
@@ -174,10 +184,10 @@ def run_absa(reviews_df: pl.DataFrame, progress=_noop) -> dict:
     progress(f"Running ATEPC inference on {len(valid_texts):,} reviews (batch_size={BATCH_SIZE})...")
     t0 = time.perf_counter()
     for start in range(0, len(valid_texts), BATCH_SIZE):
-        chunk_texts = valid_texts[start:start + BATCH_SIZE]
-        chunk_indices = valid_indices[start:start + BATCH_SIZE]
+        chunk_texts = valid_texts[start : start + BATCH_SIZE]
+        chunk_indices = valid_indices[start : start + BATCH_SIZE]
         chunk_results = _safe_predict_chunk(extractor, chunk_texts, progress)
-        for row_idx, result in zip(chunk_indices, chunk_results):
+        for row_idx, result in zip(chunk_indices, chunk_results, strict=True):
             results_by_row[row_idx] = result
     progress(f"ABSA inference done in {time.perf_counter() - t0:.1f}s")
 
@@ -196,7 +206,10 @@ def aggregate_aspect_stats(results: list) -> dict:
             continue
         aspects = result.get("aspect") or []
         sentiments = result.get("sentiment") or []
-        for aspect, sentiment in zip(aspects, sentiments):
+        # Deliberately non-strict: aspects/sentiments come from pyabsa's own
+        # output, not something we construct -- tolerate a length mismatch by
+        # truncating rather than crashing the whole batch on a model quirk.
+        for aspect, sentiment in zip(aspects, sentiments):  # noqa: B905
             norm = aspect.lower()
             norm = SYNONYM_MAP.get(norm, norm)
             bucket = aspect_stats.setdefault(norm, {"Positive": 0, "Neutral": 0, "Negative": 0})
@@ -209,10 +222,14 @@ def generate_insight_text(asin: str, title, avg_rating: float, review_count: int
     """Returns {"english": str, "turkish": str}."""
     if not aspect_stats:
         return {
-            "english": ("Not enough specific product-feature mentions were found in "
-                        "these reviews to generate an aspect-level insight."),
-            "turkish": ("Bu yorumlarda aspect seviyesinde bir icgoru uretmek icin "
-                        "yeterli spesifik urun ozelligi bahsi bulunamadi."),
+            "english": (
+                "Not enough specific product-feature mentions were found in "
+                "these reviews to generate an aspect-level insight."
+            ),
+            "turkish": (
+                "Bu yorumlarda aspect seviyesinde bir icgoru uretmek icin "
+                "yeterli spesifik urun ozelligi bahsi bulunamadi."
+            ),
         }
 
     ranked = sorted(aspect_stats.items(), key=lambda kv: -sum(kv[1].values()))[:15]
@@ -314,7 +331,15 @@ def get_or_compute_insight(asin: str, force_refresh: bool = False, progress=_noo
         """INSERT OR REPLACE INTO product_cache
            (asin, title, review_count, avg_rating, aspect_stats_json, insight_text, insight_text_tr, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
-        (asin, title, review_count, avg_rating, json.dumps(aspect_stats), insight["english"], insight["turkish"]),
+        (
+            asin,
+            title,
+            review_count,
+            avg_rating,
+            json.dumps(aspect_stats),
+            insight["english"],
+            insight["turkish"],
+        ),
     )
     conn.commit()
 
@@ -359,7 +384,15 @@ def analyze_reviews_direct(asin: str, title, reviews: list[dict], progress=_noop
         """INSERT OR REPLACE INTO product_cache
            (asin, title, review_count, avg_rating, aspect_stats_json, insight_text, insight_text_tr, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
-        (asin, title, review_count, avg_rating, json.dumps(aspect_stats), insight["english"], insight["turkish"]),
+        (
+            asin,
+            title,
+            review_count,
+            avg_rating,
+            json.dumps(aspect_stats),
+            insight["english"],
+            insight["turkish"],
+        ),
     )
     conn.commit()
 

@@ -35,8 +35,10 @@ def main():
     )
 
     index.write_parquet(PRODUCT_INDEX_PATH)
-    print(f"[build] {index.height:,} products indexed -> {PRODUCT_INDEX_PATH.name} "
-          f"in {time.perf_counter() - t0:.1f}s")
+    print(
+        f"[build] {index.height:,} products indexed -> {PRODUCT_INDEX_PATH.name} "
+        f"in {time.perf_counter() - t0:.1f}s"
+    )
 
 
 if __name__ == "__main__":
