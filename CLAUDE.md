@@ -141,11 +141,31 @@ Amazon changes markup again:
 only allows a single leading `*.` subdomain wildcard, not a wildcard TLD, so `*://*.amazon.*/*` is
 invalid and silently matches nothing.
 
-**Legacy/experimental scripts** (`absa_pipeline.py`, `pyabsa_pipeline.py`, `eda_analysis.py`,
-`generate_annotation_batch.py`, `annotate_cli.py`) predate `insight_engine.py` and were exploratory
-steps (spaCy-based ABSA before switching to pyabsa, EDA charting, a human-annotation workflow for
-evaluating pyabsa). They are not part of the current pipeline and are not wired into the three front
-ends above.
+**Legacy/experimental scripts** (`absa_pipeline.py`, `pyabsa_pipeline.py`, `eda_analysis.py`) predate
+`insight_engine.py` and were exploratory steps (spaCy-based ABSA before switching to pyabsa, EDA
+charting). They are not part of the current pipeline and are not wired into the three front ends above.
+
+**Evaluation methodology (`generate_annotation_batch.py` -> `annotate_cli.py` -> `build_gold_standard.py`)
+is a separate, ongoing effort to measure pyabsa's real accuracy** -- not wired into the live pipeline,
+but not legacy either; this is the answer to "how accurate is pyabsa on this data" and should stay
+the only source cited for that question.
+1. `generate_annotation_batch.py` draws a stratified sample (40 rows per star rating 1-5 = 200 total,
+   `RANDOM_SEED`-reproducible) from `processed_full_dataset.parquet`, runs pyabsa on it, and writes
+   `annotation_batch.xlsx` for manual review (raw pyabsa output, including per-aspect confidence, is
+   kept separately in `annotation_batch_raw.jsonl`).
+2. `annotate_cli.py` is a keyboard-driven annotator over that workbook -- see `annotation_guidelines.md`
+   for the labeling rules (aspect boundary definition, sentiment-is-about-the-aspect-not-the-review
+   rule, wrong-variant-shipped / generic-DOA-complaint special cases). Rows are shown **lowest-model-
+   confidence-first** so early stopping still covers the most error-prone predictions for qualitative
+   error analysis -- but this also means an incomplete run is *not* a random subsample of the 200.
+3. `build_gold_standard.py` turns a completed workbook into real Precision/Recall/F1 for aspect term
+   extraction and (measured separately) sentiment-classification accuracy given a correctly extracted
+   aspect, both with bootstrap 95% CIs. It refuses to run on an incomplete batch unless `--allow-partial`
+   is passed, and even then labels the output PARTIAL/EXPLORATORY -- this guardrail exists because an
+   earlier 33/200 partial run was mistakenly treated as a final number; per the confidence-first
+   ordering in step 2, a partial run is also systematically biased toward the hardest cases, not just
+   imprecise. **Do not cite any number from this pipeline unless the report says FINAL, and do not
+   reference the old 33-row figure (78.8%) anywhere -- it was invalid and superseded by this workflow.**
 
 Windows-specific: most scripts call `sys.stdout.reconfigure(encoding="utf-8", errors="replace")` because
 the default Windows console codepage (cp1254 on Turkish Windows) crashes on Unicode review text
