@@ -1,13 +1,17 @@
 const BACKEND_URL = "http://127.0.0.1:5057";
 
 const btn = document.getElementById("analyzeBtn");
+const forceRefreshCheckbox = document.getElementById("forceRefresh");
 const statusEl = document.getElementById("status");
 const resultEl = document.getElementById("result");
 
 btn.addEventListener("click", async () => {
   btn.disabled = true;
   resultEl.innerHTML = "";
-  statusEl.textContent = "Sayfa taranıyor (daha fazla yorum varsa otomatik yükleniyor)...";
+  const forceRefresh = forceRefreshCheckbox.checked;
+  statusEl.textContent = forceRefresh
+    ? "Cache atlanıyor, yeniden analiz ediliyor -- 20-60s sürebilir..."
+    : "Sayfa taranıyor (daha fazla yorum varsa otomatik yükleniyor)...";
   const startedAt = performance.now();
 
   try {
@@ -37,12 +41,14 @@ btn.addEventListener("click", async () => {
       return;
     }
 
-    statusEl.textContent = `${scraped.reviews.length} yorum bulundu (ASIN: ${scraped.asin}). Analiz ediliyor -- ilk analiz 20-60s sürebilir...`;
+    if (!forceRefresh) {
+      statusEl.textContent = `${scraped.reviews.length} yorum bulundu (ASIN: ${scraped.asin}). Analiz ediliyor -- ilk analiz 20-60s sürebilir...`;
+    }
 
     const res = await fetch(`${BACKEND_URL}/analyze`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(scraped),
+      body: JSON.stringify({ ...scraped, force_refresh: forceRefresh }),
     });
     const data = await res.json();
 

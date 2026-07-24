@@ -23,6 +23,16 @@
     width: 100%;
   }
   button:disabled { background: #c3c2b7; cursor: not-allowed; }
+  .force-refresh {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: #52514e;
+    margin-top: 6px;
+    cursor: pointer;
+  }
+  .force-refresh input { margin: 0; cursor: pointer; }
   #status {
     font-size: 12px;
     color: #52514e;
@@ -98,6 +108,10 @@
 <body>
   <h3>🔍 Amazon Ürün İçgörü Aracı</h3>
   <button id="analyzeBtn">Bu Ürünü Analiz Et</button>
+  <label class="force-refresh">
+    <input type="checkbox" id="forceRefresh" />
+    Cache'i atla, yeniden analiz et
+  </label>
   <div id="status"></div>
   <div id="result"></div>
   <script src="render.js"></script>

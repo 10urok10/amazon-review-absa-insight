@@ -49,9 +49,16 @@
       margin-bottom: 8px;
     }
     .panel-header b { font-size: 13px; }
+    .panel-header-actions { display: flex; align-items: center; }
+    .icon-btn {
+      background: none; border: none; cursor: pointer; color: #52514e;
+      font-size: 14px; line-height: 1; padding: 0 0 0 10px;
+    }
+    .icon-btn:hover { color: #0b0b0b; }
+    .icon-btn:disabled { color: #c3c2b7; cursor: not-allowed; }
     .close-btn {
       background: none; border: none; cursor: pointer; color: #52514e;
-      font-size: 16px; line-height: 1; padding: 0 0 0 8px;
+      font-size: 16px; line-height: 1; padding: 0 0 0 10px;
     }
     .close-btn:hover { color: #0b0b0b; }
     #panelStatus {
@@ -72,7 +79,10 @@
     <div class="panel" id="panel">
       <div class="panel-header">
         <b>🔍 Ürün İçgörüsü</b>
-        <button class="close-btn" id="closeBtn" title="Kapat">✕</button>
+        <div class="panel-header-actions">
+          <button class="icon-btn" id="refreshBtn" title="Yeniden analiz et (cache'i atla)">🔄</button>
+          <button class="close-btn" id="closeBtn" title="Kapat">✕</button>
+        </div>
       </div>
       <div id="panelStatus"></div>
       <div id="panelResult"></div>
@@ -84,6 +94,7 @@
   const fabBadge = shadow.getElementById("fabBadge");
   const panel = shadow.getElementById("panel");
   const closeBtn = shadow.getElementById("closeBtn");
+  const refreshBtn = shadow.getElementById("refreshBtn");
   const panelStatus = shadow.getElementById("panelStatus");
   const panelResult = shadow.getElementById("panelResult");
 
@@ -97,7 +108,68 @@
     }
   });
 
-  fabBtn.addEventListener("click", async () => {
+  async function runAnalysis(forceRefresh) {
+    panelResult.innerHTML = "";
+    fabBtn.disabled = true;
+    refreshBtn.disabled = true;
+    panelStatus.textContent = forceRefresh
+      ? "Cache atlanıyor, yeniden analiz ediliyor -- 20-60s sürebilir..."
+      : "Sayfa taranıyor (daha fazla yorum varsa otomatik yükleniyor)...";
+    const startedAt = performance.now();
+
+    const scraped = await scrapeAmazonProduct();
+    if (!scraped.asin) {
+      panelStatus.textContent = "ASIN bulunamadı.";
+      fabBtn.disabled = false;
+      refreshBtn.disabled = false;
+      return;
+    }
+    if (!scraped.reviews.length) {
+      panelStatus.textContent = "Bu sayfada yorum bulunamadı. Sayfayı yorumlar bölümüne kadar kaydırıp tekrar dene.";
+      fabBtn.disabled = false;
+      refreshBtn.disabled = false;
+      return;
+    }
+    if (!forceRefresh) {
+      panelStatus.textContent = `${scraped.reviews.length} yorum bulundu. Analiz ediliyor -- ilk analiz 20-60s sürebilir...`;
+    }
+
+    chrome.runtime.sendMessage(
+      { type: "analyze", payload: { ...scraped, force_refresh: forceRefresh } },
+      (resp) => {
+        fabBtn.disabled = false;
+        refreshBtn.disabled = false;
+        if (chrome.runtime.lastError) {
+          panelStatus.textContent = `Backend'e bağlanılamadı. (${chrome.runtime.lastError.message})`;
+          return;
+        }
+        if (!resp || !resp.ok) {
+          const errMsg = resp && resp.data ? resp.data.error : resp && resp.error;
+          panelStatus.textContent = `Hata: ${errMsg || "bilinmiyor"}`;
+          return;
+        }
+        const data = resp.data;
+        const totalSeconds = ((performance.now() - startedAt) / 1000).toFixed(1);
+        panelStatus.textContent = data.from_cache
+          ? `⚡ Cache'ten geldi (ilk analiz: ${data.created_at}) -- ${totalSeconds}s`
+          : `✅ Yeni analiz tamamlandı -- ${totalSeconds}s toplam, backend: ${data.backend_seconds}s`;
+        renderInsightResult(panelResult, data, (aspect, terms) => {
+          const { found } = scrollToAspectMentions(terms);
+          const prevText = panelStatus.textContent;
+          panelStatus.textContent = found
+            ? `📍 "${aspect}" için ${found} yorum bulundu, kaydırılıyor...`
+            : `"${aspect}" için sayfada eşleşen yorum bulunamadı (gösterilmemiş/kapalı olabilir).`;
+          setTimeout(() => {
+            panelStatus.textContent = prevText;
+          }, 2500);
+        });
+        fabBtn.classList.add("cached");
+        fabBadge.classList.add("show");
+      }
+    );
+  }
+
+  fabBtn.addEventListener("click", () => {
     // Second click while the panel is already open just closes it, instead
     // of re-scraping and re-analyzing -- click again (or reopen via the
     // badge state) to re-run.
@@ -105,54 +177,12 @@
       panel.classList.remove("show");
       return;
     }
-
     panel.classList.add("show");
-    panelResult.innerHTML = "";
-    fabBtn.disabled = true;
-    panelStatus.textContent = "Sayfa taranıyor (daha fazla yorum varsa otomatik yükleniyor)...";
-    const startedAt = performance.now();
+    runAnalysis(false);
+  });
 
-    const scraped = await scrapeAmazonProduct();
-    if (!scraped.asin) {
-      panelStatus.textContent = "ASIN bulunamadı.";
-      fabBtn.disabled = false;
-      return;
-    }
-    if (!scraped.reviews.length) {
-      panelStatus.textContent = "Bu sayfada yorum bulunamadı. Sayfayı yorumlar bölümüne kadar kaydırıp tekrar dene.";
-      fabBtn.disabled = false;
-      return;
-    }
-    panelStatus.textContent = `${scraped.reviews.length} yorum bulundu. Analiz ediliyor -- ilk analiz 20-60s sürebilir...`;
-
-    chrome.runtime.sendMessage({ type: "analyze", payload: scraped }, (resp) => {
-      fabBtn.disabled = false;
-      if (chrome.runtime.lastError) {
-        panelStatus.textContent = `Backend'e bağlanılamadı. (${chrome.runtime.lastError.message})`;
-        return;
-      }
-      if (!resp || !resp.ok) {
-        const errMsg = resp && resp.data ? resp.data.error : resp && resp.error;
-        panelStatus.textContent = `Hata: ${errMsg || "bilinmiyor"}`;
-        return;
-      }
-      const data = resp.data;
-      const totalSeconds = ((performance.now() - startedAt) / 1000).toFixed(1);
-      panelStatus.textContent = data.from_cache
-        ? `⚡ Cache'ten geldi (ilk analiz: ${data.created_at}) -- ${totalSeconds}s`
-        : `✅ Yeni analiz tamamlandı -- ${totalSeconds}s toplam, backend: ${data.backend_seconds}s`;
-      renderInsightResult(panelResult, data, (aspect, terms) => {
-        const { found } = scrollToAspectMentions(terms);
-        const prevText = panelStatus.textContent;
-        panelStatus.textContent = found
-          ? `📍 "${aspect}" için ${found} yorum bulundu, kaydırılıyor...`
-          : `"${aspect}" için sayfada eşleşen yorum bulunamadı (gösterilmemiş/kapalı olabilir).`;
-        setTimeout(() => {
-          panelStatus.textContent = prevText;
-        }, 2500);
-      });
-      fabBtn.classList.add("cached");
-      fabBadge.classList.add("show");
-    });
+  refreshBtn.addEventListener("click", () => {
+    panel.classList.add("show");
+    runAnalysis(true);
   });
 })();

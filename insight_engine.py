@@ -361,7 +361,9 @@ def get_or_compute_insight(asin: str, force_refresh: bool = False, progress=_noo
     return result
 
 
-def analyze_reviews_direct(asin: str, title, reviews: list[dict], progress=_noop) -> dict:
+def analyze_reviews_direct(
+    asin: str, title, reviews: list[dict], force_refresh: bool = False, progress=_noop
+) -> dict:
     """Same pipeline and cache as get_or_compute_insight, but for reviews handed
     in directly (e.g. scraped from a live product page by the browser
     extension's content script) instead of looked up from
@@ -371,10 +373,11 @@ def analyze_reviews_direct(asin: str, title, reviews: list[dict], progress=_noop
     """
     conn = init_cache_db()
 
-    cached = get_cached(conn, asin)
-    if cached:
-        cached["from_cache"] = True
-        return cached
+    if not force_refresh:
+        cached = get_cached(conn, asin)
+        if cached:
+            cached["from_cache"] = True
+            return cached
 
     texts = [r["text"].strip() for r in reviews if r.get("text") and r["text"].strip()]
     ratings = [r["rating"] for r in reviews if r.get("rating") is not None]

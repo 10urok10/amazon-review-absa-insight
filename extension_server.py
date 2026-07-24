@@ -72,17 +72,24 @@ def analyze():
     asin = data.get("asin")
     title = data.get("title")
     reviews = data.get("reviews") or []
+    force_refresh = bool(data.get("force_refresh", False))
 
     if not asin:
         return jsonify({"error": "asin is required"}), 400
     if not reviews:
         return jsonify({"error": "no reviews provided"}), 400
 
-    logger.info("Analyze request: asin=%s title=%r reviews=%d", asin, title, len(reviews))
+    logger.info(
+        "Analyze request: asin=%s title=%r reviews=%d force_refresh=%s",
+        asin,
+        title,
+        len(reviews),
+        force_refresh,
+    )
 
     t0 = time.perf_counter()
     try:
-        result = analyze_reviews_direct(asin, title, reviews, progress=print)
+        result = analyze_reviews_direct(asin, title, reviews, force_refresh=force_refresh, progress=print)
     except ValueError as exc:
         logger.warning("Analyze request rejected for asin=%s: %s", asin, exc)
         return jsonify({"error": str(exc)}), 400
