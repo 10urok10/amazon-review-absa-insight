@@ -1,0 +1,47 @@
+{
+  "label": "PARTIAL / EXPLORATORY",
+  "n_annotated": 100,
+  "n_total": 200,
+  "bootstrap_resamples": 3000,
+  "aspect_extraction": {
+    "precision": 0.8781512605042017,
+    "recall": 0.8969957081545065,
+    "f1": 0.8874734607218683,
+    "tp": 209,
+    "fp": 29,
+    "fn": 24,
+    "ci_95": {
+      "precision": [
+        0.8026288146837683,
+        0.9449162260923651
+      ],
+      "recall": [
+        0.8262905824779184,
+        0.9531295598249028
+      ],
+      "f1": [
+        0.8287234507791659,
+        0.9358785484889731
+      ]
+    }
+  },
+  "sentiment_classification": {
+    "accuracy": 0.9856459330143541,
+    "hits": 206,
+    "total": 209,
+    "ci_95": [
+      0.9666666666666667,
+      1.0
+    ]
+  },
+  "verdict_counts": {
+    "correct": 76,
+    "partial": 13,
+    "missed_all": 10,
+    "no_aspect": 1
+  },
+  "flagged": {
+    "wrong_variant_or_spec": 0,
+    "generic_doa_complaint": 0
+  }
+}
