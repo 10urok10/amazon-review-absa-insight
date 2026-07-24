@@ -166,29 +166,33 @@ the only source cited for that question.
    hardest cases, not just imprecise (an earlier now-discarded 33-row run was mistakenly treated as
    final, which is what this guardrail prevents from recurring).
 
-**Current reference numbers (`gold_standard_report.md`, committed at `657db6d`):** the original 33-row
-state was discarded and re-annotated from scratch; the user annotated 100/200 of the stratified sample
-and deliberately stopped there rather than finishing all 200 -- aspect extraction P=0.878, R=0.897,
-F1=0.887; sentiment accuracy given a correctly-extracted aspect=0.986 (so the dominant error source is
-extraction, not polarity). **Never drop this caveat when citing these numbers:** because of the
-confidence-first annotation order, this 100 is the harder half of the sample, so these numbers likely
-*understate* pyabsa's true accuracy, not overstate it. These replace the old 33-row/78.8% figure, which
-remains permanently non-citable regardless of anything above.
+**Numbers, and why they're a rough signal, not a benchmark (`gold_standard_report.md`, committed at
+`657db6d`):** the original 33-row state was discarded and re-annotated from scratch; the user annotated
+100/200 of the stratified sample and deliberately stopped there -- aspect extraction P~0.88, R~0.90,
+F1~0.89; sentiment accuracy given a correctly-extracted aspect~0.99. **Treat these as a rough directional
+estimate only, never as a citable benchmark number**, for three compounding reasons: (1) confidence-first
+annotation order means this 100 is the model's systematically hardest cases, not a random half; (2) it's
+a single annotator with no inter-annotator agreement check, and the user has explicitly said (twice,
+unprompted) that they don't trust their own labels; (3) `annotate_cli.py` shows pyabsa's own predicted
+aspect before asking for a verdict, which risks anchoring the annotator toward agreeing with it. These
+numbers still replace the old 33-row/78.8% figure, which remains permanently non-citable -- but replace
+it with "a rough estimate," not "the real accuracy."
 
 **Rejected experiment (`analyze_absa_errors.py`, `aspect_postprocessing.py`,
 `compare_postprocessing_effect.py`):** a rule-based filter dropping verb/adjective-only aspect spans
 and brand/product-name spans, plus lemmatizing terms, was tested against the same 100 gold rows and
-made F1 *worse* (0.887 -> 0.855 at best; 0.757 with lemmatization) -- verb-form aspects like "install"/
+made F1 *worse* (~0.89 -> 0.855 at best; 0.757 with lemmatization) -- verb-form aspects like "install"/
 "cost"/"fits" and named entities like "Windows 8"/"USB" are often legitimately correct in this
 annotation scheme, and POS/NER tagging can't reliably tell "this product's own named part" from "a
 different product mentioned for comparison." Not wired into `insight_engine.py`; spaCy is intentionally
-not in `requirements.txt`/CI because of this. Do not re-propose this exact filter design -- see the
-scripts' docstrings for the full measured breakdown.
+not in `requirements.txt`/CI because of this. This is a *small* effect size on an uncertain gold set --
+the shakiest of the three rejected attempts below, "no real difference" is plausible. Do not re-propose
+this exact filter design -- see the scripts' docstrings for the full measured breakdown.
 
 **Also rejected: checkpoint swap and fine-tuning (`compare_checkpoints.py`,
 `prepare_semeval_finetune_data.py`, `finetune_atepc.py`, `evaluate_finetuned_checkpoint.py`).**
 pyabsa ships only one other ATEPC checkpoint besides "english" -- "multilingual" -- and it's much
-worse on English text (F1=0.323 vs. 0.887). Genuine fine-tuning (not self-distillation) was tried on
+worse on English text (F1=0.323 vs. ~0.89). Genuine fine-tuning (not self-distillation) was tried on
 SemEval-2014 Task 4 Laptop data (277 docs, 3048 sentences, real term-level span annotations,
 manually downloaded from metashare.ilsp.gr -- licensed Academic/Non-Commercial/No-Redistribution,
 so `Laptops_Train.xml`/`archive.zip`/`semeval_finetune_data/` are gitignored, never committed).
@@ -198,10 +202,13 @@ since SemEval Laptop reviews don't overlap with Amazon Electronics reviews) -- F
 respectively, both far below baseline via collapsed recall (0.19-0.21 vs 0.897). Fine-tuning on this
 small, single-domain dataset makes the model more conservative about what counts as an aspect, losing
 the broad recall the original checkpoint has from its much larger, more diverse training mix. Not a
-"too aggressive" problem -- both doses failed the same way. **All three levers (post-processing,
-checkpoint swap, fine-tuning) are now closed; the working accuracy reference stays the unmodified
-"english" checkpoint at F1=0.887 / sentiment=0.986.** A future attempt would need a genuinely
-different, larger, more Amazon/Electronics-relevant labeled dataset, not more tuning on SemEval Laptop.
+"too aggressive" problem -- both doses failed the same way. Unlike the post-processing rejection above,
+this ~3x gap (e.g. TP=209 vs TP=45-54) is large enough that annotator noise/uncertainty plausibly
+doesn't explain it away -- a reasonably solid negative result even given the gold set's limitations.
+**All three levers (post-processing, checkpoint swap, fine-tuning) are now closed; the project keeps
+using the unmodified "english" checkpoint.** A future attempt would need a genuinely different, larger,
+more Amazon/Electronics-relevant labeled dataset, not more tuning on SemEval Laptop -- and ideally a
+sturdier gold standard (second annotator, blind labeling) before trusting precise numbers again.
 
 Windows-specific: most scripts call `sys.stdout.reconfigure(encoding="utf-8", errors="replace")` because
 the default Windows console codepage (cp1254 on Turkish Windows) crashes on Unicode review text
