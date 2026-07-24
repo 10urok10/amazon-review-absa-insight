@@ -34,6 +34,13 @@ CHECKPOINT = "english"
 BATCH_SIZE = 64
 DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
 
+# Benchmarked with benchmark_fp16.py (torch.autocast, not a raw .half() cast --
+# keeps numerically sensitive ops like softmax/layer norm in FP32): 1.40x
+# throughput, *lower* peak GPU memory, 99.5% exact per-review prediction match
+# vs FP32 and 100% sentiment agreement on aspects found by both, on a 200-review
+# sample. Only applies on CUDA; autocast is skipped on CPU.
+USE_FP16_INFERENCE = True
+
 # ---------------------------------------------------------------------------
 # Gemini
 # ---------------------------------------------------------------------------

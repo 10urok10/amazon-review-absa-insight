@@ -16,6 +16,7 @@ Pipeline for a single ASIN:
   3. Save the result to the cache so the next lookup for this ASIN is free.
 """
 
+import contextlib
 import json
 import logging
 import os
@@ -42,6 +43,7 @@ from config import (
     PRODUCT_INDEX_PATH,
     RANDOM_SEED,
     SYNONYM_MAP,
+    USE_FP16_INFERENCE,
 )
 from logging_config import get_logger
 
@@ -144,9 +146,19 @@ def _get_extractor(progress=_noop):
     return _extractor
 
 
+def _inference_context():
+    """torch.autocast (mixed FP16/FP32) on CUDA when enabled -- see
+    benchmark_fp16.py for the measured speed/consistency tradeoff behind
+    USE_FP16_INFERENCE. No-op on CPU or when disabled."""
+    if USE_FP16_INFERENCE and DEVICE == "cuda:0":
+        return torch.autocast(device_type="cuda", dtype=torch.float16)
+    return contextlib.nullcontext()
+
+
 def _safe_predict_chunk(extractor, texts, progress=_noop):
     try:
-        return extractor.predict(texts, print_result=False, save_result=False, pred_sentiment=True)
+        with _inference_context():
+            return extractor.predict(texts, print_result=False, save_result=False, pred_sentiment=True)
     except Exception as exc:
         logger.warning(
             "ATEPC batch of %d failed (%s: %s); retrying rows individually",
@@ -160,7 +172,8 @@ def _safe_predict_chunk(extractor, texts, progress=_noop):
         results = []
         for text in texts:
             try:
-                r = extractor.predict([text], print_result=False, save_result=False, pred_sentiment=True)
+                with _inference_context():
+                    r = extractor.predict([text], print_result=False, save_result=False, pred_sentiment=True)
                 results.append(r[0])
             except Exception as exc2:
                 logger.warning("ATEPC row failed individually (%s: %s), skipping", type(exc2).__name__, exc2)
