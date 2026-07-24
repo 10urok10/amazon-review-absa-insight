@@ -175,6 +175,18 @@ confidence-first annotation order, this 100 is the harder half of the sample, so
 *understate* pyabsa's true accuracy, not overstate it. These replace the old 33-row/78.8% figure, which
 remains permanently non-citable regardless of anything above.
 
+**Rejected experiment (`analyze_absa_errors.py`, `aspect_postprocessing.py`,
+`compare_postprocessing_effect.py`):** a rule-based filter dropping verb/adjective-only aspect spans
+and brand/product-name spans, plus lemmatizing terms, was tested against the same 100 gold rows and
+made F1 *worse* (0.887 -> 0.855 at best; 0.757 with lemmatization) -- verb-form aspects like "install"/
+"cost"/"fits" and named entities like "Windows 8"/"USB" are often legitimately correct in this
+annotation scheme, and POS/NER tagging can't reliably tell "this product's own named part" from "a
+different product mentioned for comparison." Not wired into `insight_engine.py`; spaCy is intentionally
+not in `requirements.txt`/CI because of this. Do not re-propose this exact filter design -- see the
+scripts' docstrings for the full measured breakdown. Further extraction-accuracy gains likely need a
+different/ensembled checkpoint or genuine fine-tuning on independent labeled data, not post-processing
+rules.
+
 Windows-specific: most scripts call `sys.stdout.reconfigure(encoding="utf-8", errors="replace")` because
 the default Windows console codepage (cp1254 on Turkish Windows) crashes on Unicode review text
 otherwise.
