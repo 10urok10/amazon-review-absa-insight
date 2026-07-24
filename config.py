@@ -25,7 +25,13 @@ LOG_PATH = BASE_DIR / "app.log"
 # pyabsa / model
 # ---------------------------------------------------------------------------
 CHECKPOINT = "english"
-BATCH_SIZE = 16
+# Benchmarked on an RTX 5060 (8GB VRAM): batch_size=16 -> 7.5 reviews/sec,
+# peak 1.86GB; batch_size=64 -> 9.4 reviews/sec (~25% faster) at the same
+# peak memory (pyabsa internally caps activation memory regardless of the
+# batch size passed in). 128 gave only ~5% more on top of that -- not worth
+# the reduced headroom. Re-benchmark with _benchmark_batch_size.py if you
+# change GPUs or the checkpoint.
+BATCH_SIZE = 64
 DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 # ---------------------------------------------------------------------------
