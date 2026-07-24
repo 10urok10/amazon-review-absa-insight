@@ -95,7 +95,8 @@ python extension_server.py      # local backend, keep running
 # then: chrome://extensions → Developer mode → Load unpacked → select browser_extension/
 # on any Amazon product page, either click the toolbar icon, or use the floating
 # button the extension injects directly into the page (auto-badges if the
-# product is already cached)
+# product is already cached) -- both offer a cache-bypass option (checkbox
+# in the popup, the 🔄 button in the in-page panel) to force a fresh pass
 ```
 
 ## Testing
