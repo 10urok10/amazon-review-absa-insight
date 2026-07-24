@@ -8,11 +8,19 @@
 _meta_Electronics.clean.jsonl
 electronicsRar/
 
+# SemEval-2014 Task 4 ABSA data (metashare.ilsp.gr license: Academic -
+# Non-Commercial Use, No Redistribution -- must not be committed)
+archive.zip
+/Laptops_Train.xml
+/semeval_finetune_data/
+
 # Runtime cache, logs, and pyabsa model checkpoints (regenerated automatically on first run)
 *.sqlite3
 app.log
 checkpoints/
 checkpoints.json
+*.cache
+/logs/
 
 # pytest
 .pytest_cache/

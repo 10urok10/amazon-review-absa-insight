@@ -183,9 +183,25 @@ made F1 *worse* (0.887 -> 0.855 at best; 0.757 with lemmatization) -- verb-form 
 annotation scheme, and POS/NER tagging can't reliably tell "this product's own named part" from "a
 different product mentioned for comparison." Not wired into `insight_engine.py`; spaCy is intentionally
 not in `requirements.txt`/CI because of this. Do not re-propose this exact filter design -- see the
-scripts' docstrings for the full measured breakdown. Further extraction-accuracy gains likely need a
-different/ensembled checkpoint or genuine fine-tuning on independent labeled data, not post-processing
-rules.
+scripts' docstrings for the full measured breakdown.
+
+**Also rejected: checkpoint swap and fine-tuning (`compare_checkpoints.py`,
+`prepare_semeval_finetune_data.py`, `finetune_atepc.py`, `evaluate_finetuned_checkpoint.py`).**
+pyabsa ships only one other ATEPC checkpoint besides "english" -- "multilingual" -- and it's much
+worse on English text (F1=0.323 vs. 0.887). Genuine fine-tuning (not self-distillation) was tried on
+SemEval-2014 Task 4 Laptop data (277 docs, 3048 sentences, real term-level span annotations,
+manually downloaded from metashare.ilsp.gr -- licensed Academic/Non-Commercial/No-Redistribution,
+so `Laptops_Train.xml`/`archive.zip`/`semeval_finetune_data/` are gitignored, never committed).
+Both an aggressive (5 epoch, lr=1e-5) and a light-touch (1 epoch, lr=2e-6) fine-tune, continuing from
+`from_checkpoint="english"`, were evaluated against the same 100 Amazon gold rows (valid, non-circular
+since SemEval Laptop reviews don't overlap with Amazon Electronics reviews) -- F1=0.273 and F1=0.326
+respectively, both far below baseline via collapsed recall (0.19-0.21 vs 0.897). Fine-tuning on this
+small, single-domain dataset makes the model more conservative about what counts as an aspect, losing
+the broad recall the original checkpoint has from its much larger, more diverse training mix. Not a
+"too aggressive" problem -- both doses failed the same way. **All three levers (post-processing,
+checkpoint swap, fine-tuning) are now closed; the working accuracy reference stays the unmodified
+"english" checkpoint at F1=0.887 / sentiment=0.986.** A future attempt would need a genuinely
+different, larger, more Amazon/Electronics-relevant labeled dataset, not more tuning on SemEval Laptop.
 
 Windows-specific: most scripts call `sys.stdout.reconfigure(encoding="utf-8", errors="replace")` because
 the default Windows console codepage (cp1254 on Turkish Windows) crashes on Unicode review text
