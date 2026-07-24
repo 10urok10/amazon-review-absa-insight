@@ -19,7 +19,7 @@ import time
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
-from insight_engine import analyze_reviews_direct
+from insight_engine import analyze_reviews_direct, get_cached, init_cache_db
 from logging_config import get_logger
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -32,6 +32,26 @@ CORS(app)  # extension origin (chrome-extension://...) needs cross-origin access
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok"})
+
+
+@app.route("/cache_status/<asin>", methods=["GET"])
+def cache_status(asin):
+    """Cheap SQLite-only lookup (no GPU/LLM) for the content script's badge."""
+    conn = init_cache_db()
+    try:
+        cached = get_cached(conn, asin)
+    finally:
+        conn.close()
+    if cached is None:
+        return jsonify({"cached": False})
+    return jsonify(
+        {
+            "cached": True,
+            "title": cached["title"],
+            "avg_rating": cached["avg_rating"],
+            "created_at": cached["created_at"],
+        }
+    )
 
 
 @app.route("/analyze", methods=["POST"])

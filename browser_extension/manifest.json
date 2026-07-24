@@ -5,6 +5,37 @@
   "description": "Kişisel kullanım: açık olan Amazon ürün sayfasındaki yorumları okuyup aspect-bazlı olumlu/olumsuz özet çıkarır. Amazon'a ekstra istek göndermez, sadece zaten yüklenmiş sayfayı okur.",
   "permissions": ["activeTab", "scripting"],
   "host_permissions": ["http://127.0.0.1:5057/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.amazon.com/*",
+        "*://*.amazon.com.tr/*",
+        "*://*.amazon.co.uk/*",
+        "*://*.amazon.de/*",
+        "*://*.amazon.fr/*",
+        "*://*.amazon.it/*",
+        "*://*.amazon.es/*",
+        "*://*.amazon.nl/*",
+        "*://*.amazon.se/*",
+        "*://*.amazon.pl/*",
+        "*://*.amazon.ca/*",
+        "*://*.amazon.com.mx/*",
+        "*://*.amazon.com.br/*",
+        "*://*.amazon.co.jp/*",
+        "*://*.amazon.in/*",
+        "*://*.amazon.com.au/*",
+        "*://*.amazon.ae/*",
+        "*://*.amazon.sa/*",
+        "*://*.amazon.eg/*",
+        "*://*.amazon.sg/*"
+      ],
+      "js": ["scraper.js", "render.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_title": "Amazon Ürün İçgörü Aracı",
