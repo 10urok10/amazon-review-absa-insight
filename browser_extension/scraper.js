@@ -114,3 +114,32 @@ async function scrapeAmazonProduct() {
 
   return { asin, title, reviews, url: window.location.href };
 }
+
+// Scrolls to and briefly highlights the reviews on the page whose text
+// mentions any of `terms` (case-insensitive substring match) -- `terms`
+// should include the aspect's canonical name plus any pre-synonym-map raw
+// terms folded into it server-side (see aspect_search_terms in the
+// /analyze response), since a review's raw text may use the pre-mapping
+// word (e.g. "cable") rather than the canonical aspect ("charger").
+function scrollToAspectMentions(terms) {
+  const lowerTerms = terms.map((t) => t.toLowerCase());
+  const matches = Array.from(document.querySelectorAll('span[data-hook="review-body"]')).filter((el) => {
+    const text = el.textContent.toLowerCase();
+    return lowerTerms.some((t) => text.includes(t));
+  });
+
+  matches.forEach((el) => {
+    const original = el.style.backgroundColor;
+    el.style.transition = "background-color 0.3s";
+    el.style.backgroundColor = "#fff3a3";
+    setTimeout(() => {
+      el.style.backgroundColor = original;
+    }, 2500);
+  });
+
+  if (matches.length) {
+    matches[0].scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  return { found: matches.length };
+}

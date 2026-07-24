@@ -26,6 +26,8 @@ const RESULT_PANEL_CSS = `
   .chart-legend span { display: inline-flex; align-items: center; gap: 4px; }
   .legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
   .aspect-item { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+  .aspect-item.clickable { cursor: pointer; border-radius: 4px; }
+  .aspect-item.clickable:hover { background: rgba(0, 0, 0, 0.05); }
   .aspect-label {
     width: 76px;
     font-size: 11px;
@@ -56,7 +58,11 @@ const RESULT_PANEL_CSS = `
   }
 `;
 
-function renderInsightResult(container, data) {
+// onAspectClick(aspect, searchTerms), if provided, is called when an aspect
+// bar is clicked -- used by content.js to scroll to matching reviews on the
+// page. Left undefined for the popup, where there's no visible page to
+// scroll to, so bars there stay non-interactive.
+function renderInsightResult(container, data, onAspectClick) {
   const entries = Object.entries(data.aspect_stats || {})
     .map(([aspect, c]) => [aspect, c, c.Positive + c.Neutral + c.Negative])
     .sort((a, b) => b[2] - a[2])
@@ -75,8 +81,9 @@ function renderInsightResult(container, data) {
         .filter(([, n]) => n > 0)
         .map(([cls, n]) => `<div class="bar-segment ${cls}" style="width:${(n / total) * 100}%"></div>`)
         .join("");
+      const clickable = onAspectClick ? "clickable" : "";
       return `
-        <div class="aspect-item">
+        <div class="aspect-item ${clickable}" data-aspect="${aspect}">
           <div class="aspect-label" title="${aspect}">${aspect}</div>
           <div class="aspect-track"><div class="aspect-bar" style="width:${barWidthPct}%">${segments}</div></div>
           <div class="aspect-total">${total}</div>
@@ -103,4 +110,14 @@ function renderInsightResult(container, data) {
     ${legend}
     <div>${bars}</div>
   `;
+
+  if (onAspectClick) {
+    container.querySelectorAll(".aspect-item[data-aspect]").forEach((el) => {
+      el.addEventListener("click", () => {
+        const aspect = el.getAttribute("data-aspect");
+        const terms = (data.aspect_search_terms && data.aspect_search_terms[aspect]) || [aspect];
+        onAspectClick(aspect, terms);
+      });
+    });
+  }
 }

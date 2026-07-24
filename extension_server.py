@@ -19,6 +19,7 @@ import time
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
+from config import SYNONYM_MAP
 from insight_engine import analyze_reviews_direct, get_cached, init_cache_db
 from logging_config import get_logger
 
@@ -27,6 +28,17 @@ logger = get_logger(__name__)
 
 app = Flask(__name__)
 CORS(app)  # extension origin (chrome-extension://...) needs cross-origin access
+
+
+def _aspect_search_terms(aspect_stats: dict) -> dict:
+    """For each canonical aspect, the raw terms folded into it via SYNONYM_MAP
+    plus the canonical name itself -- lets the extension's "scroll to review"
+    feature match review text even when the review used a pre-synonym term
+    (e.g. "cable") rather than the canonical one ("charger")."""
+    reverse: dict[str, list[str]] = {}
+    for raw, canonical in SYNONYM_MAP.items():
+        reverse.setdefault(canonical, []).append(raw)
+    return {aspect: [aspect, *reverse.get(aspect, [])] for aspect in aspect_stats}
 
 
 @app.route("/health", methods=["GET"])
@@ -88,6 +100,7 @@ def analyze():
             "insight_text": result["insight_text"],
             "insight_text_tr": result.get("insight_text_tr"),
             "aspect_stats": result["aspect_stats"],
+            "aspect_search_terms": _aspect_search_terms(result["aspect_stats"]),
             "from_cache": result["from_cache"],
             "created_at": result["created_at"],
             "backend_seconds": round(backend_seconds, 2),

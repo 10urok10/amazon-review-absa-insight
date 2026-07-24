@@ -141,7 +141,16 @@
       panelStatus.textContent = data.from_cache
         ? `⚡ Cache'ten geldi (ilk analiz: ${data.created_at}) -- ${totalSeconds}s`
         : `✅ Yeni analiz tamamlandı -- ${totalSeconds}s toplam, backend: ${data.backend_seconds}s`;
-      renderInsightResult(panelResult, data);
+      renderInsightResult(panelResult, data, (aspect, terms) => {
+        const { found } = scrollToAspectMentions(terms);
+        const prevText = panelStatus.textContent;
+        panelStatus.textContent = found
+          ? `📍 "${aspect}" için ${found} yorum bulundu, kaydırılıyor...`
+          : `"${aspect}" için sayfada eşleşen yorum bulunamadı (gösterilmemiş/kapalı olabilir).`;
+        setTimeout(() => {
+          panelStatus.textContent = prevText;
+        }, 2500);
+      });
       fabBtn.classList.add("cached");
       fabBadge.classList.add("show");
     });
