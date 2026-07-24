@@ -1,5 +1,7 @@
 # Amazon Ürün İçgörü Aracı
 
+[![CI](https://github.com/10urok10/amazon-review-absa-insight/actions/workflows/ci.yml/badge.svg)](https://github.com/10urok10/amazon-review-absa-insight/actions/workflows/ci.yml)
+
 On-demand aspect-based sentiment analysis for Amazon product reviews. Give it a
 product, and it tells you what reviewers actually praise and complain about at
 the feature level — especially when that contradicts the overall star rating.
@@ -7,6 +9,14 @@ the feature level — especially when that contradicts the overall star rating.
 > A product can sit at 4.5 stars while a specific part of it (say, the
 > charger) is a recurring complaint buried inside hundreds of reviews. This
 > tool surfaces that instead of making you read all of them.
+
+**The browser extension is the primary way to use this** — a floating button
+injected directly into any Amazon product page (no dataset required), with an
+in-page results panel. The screenshot below is the toolbar popup, which shares
+the exact same rendering code (and so the exact same look) as that in-page
+panel — real cached output, not a mockup:
+
+![Extension popup showing a bilingual insight and aspect sentiment bar chart](extension_popup_demo.png)
 
 ![Aspect-sentiment breakdown example](aspect_sentiment_chart_mapped.png)
 
@@ -101,11 +111,26 @@ migration), and product search. pyabsa inference and the Gemini call itself
 are not unit-tested (would require the model/network at test time) — treat
 `analyze_product.py --asin <known-good-asin>` as the integration smoke test.
 
+## Evaluation
+
+pyabsa's ATEPC model is used off-the-shelf (not fine-tuned) — see
+[`annotation_guidelines.md`](annotation_guidelines.md) and
+[`build_gold_standard.py`](build_gold_standard.py) for the methodology behind
+this. A gold-standard sample (stratified across star ratings, hand-annotated)
+puts aspect-extraction around **P≈0.88 / R≈0.90 / F1≈0.89**, and sentiment
+accuracy given a correctly-extracted aspect around **0.99**. Treat this as a
+rough directional estimate, not a citable benchmark — it's a single
+non-blind annotator's pass, not independently verified. Three follow-up
+attempts to improve on it (rule-based post-processing, an alternate pyabsa
+checkpoint, and fine-tuning on an independent labeled dataset) were tried and
+measured; all three made things worse, so the project intentionally keeps the
+unmodified "english" checkpoint.
+
 ## Known limitations
 
-- **The ABSA model (pyabsa ATEPC) is used off-the-shelf, not fine-tuned** on
-  this dataset. No rigorous accuracy evaluation exists yet — treat its output
-  as a strong heuristic, not ground truth.
+- **The ABSA model is off-the-shelf** — see Evaluation above for the honest,
+  rough accuracy signal available so far. Treat its output as a strong
+  heuristic, not ground truth.
 - **The browser extension scrapes Amazon's rendered DOM**, which changes over
   time; the CSS selectors in `browser_extension/scraper.js` may need updating
   if Amazon changes its review page markup.
