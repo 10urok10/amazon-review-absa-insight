@@ -43,14 +43,16 @@ def main():
         t0 = time.perf_counter()
         try:
             for start in range(0, len(texts), batch_size):
-                chunk = texts[start:start + batch_size]
+                chunk = texts[start : start + batch_size]
                 extractor.predict(chunk, print_result=False, save_result=False, pred_sentiment=True)
             elapsed = time.perf_counter() - t0
             rate = len(texts) / elapsed
             if DEVICE == "cuda:0":
                 peak_mem = torch.cuda.max_memory_allocated() / 1e6
-                print(f"[batch_size={batch_size:>3}] {elapsed:6.2f}s total, "
-                      f"{rate:5.1f} reviews/sec, peak GPU mem: {peak_mem:.0f} MB")
+                print(
+                    f"[batch_size={batch_size:>3}] {elapsed:6.2f}s total, "
+                    f"{rate:5.1f} reviews/sec, peak GPU mem: {peak_mem:.0f} MB"
+                )
             else:
                 print(f"[batch_size={batch_size:>3}] {elapsed:6.2f}s total, {rate:5.1f} reviews/sec")
         except RuntimeError as exc:
