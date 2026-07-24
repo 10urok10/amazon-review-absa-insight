@@ -158,14 +158,22 @@ the only source cited for that question.
    rule, wrong-variant-shipped / generic-DOA-complaint special cases). Rows are shown **lowest-model-
    confidence-first** so early stopping still covers the most error-prone predictions for qualitative
    error analysis -- but this also means an incomplete run is *not* a random subsample of the 200.
-3. `build_gold_standard.py` turns a completed workbook into real Precision/Recall/F1 for aspect term
-   extraction and (measured separately) sentiment-classification accuracy given a correctly extracted
-   aspect, both with bootstrap 95% CIs. It refuses to run on an incomplete batch unless `--allow-partial`
-   is passed, and even then labels the output PARTIAL/EXPLORATORY -- this guardrail exists because an
-   earlier 33/200 partial run was mistakenly treated as a final number; per the confidence-first
-   ordering in step 2, a partial run is also systematically biased toward the hardest cases, not just
-   imprecise. **Do not cite any number from this pipeline unless the report says FINAL, and do not
-   reference the old 33-row figure (78.8%) anywhere -- it was invalid and superseded by this workflow.**
+3. `build_gold_standard.py` turns a completed (or `--allow-partial`) workbook into real Precision/
+   Recall/F1 for aspect term extraction and (measured separately) sentiment-classification accuracy
+   given a correctly extracted aspect, both with bootstrap 95% CIs. It refuses to run on an incomplete
+   batch unless `--allow-partial` is passed, and even then labels the output PARTIAL/EXPLORATORY -- per
+   the confidence-first ordering in step 2, a partial run is systematically biased toward the model's
+   hardest cases, not just imprecise (an earlier now-discarded 33-row run was mistakenly treated as
+   final, which is what this guardrail prevents from recurring).
+
+**Current reference numbers (`gold_standard_report.md`, committed at `657db6d`):** the original 33-row
+state was discarded and re-annotated from scratch; the user annotated 100/200 of the stratified sample
+and deliberately stopped there rather than finishing all 200 -- aspect extraction P=0.878, R=0.897,
+F1=0.887; sentiment accuracy given a correctly-extracted aspect=0.986 (so the dominant error source is
+extraction, not polarity). **Never drop this caveat when citing these numbers:** because of the
+confidence-first annotation order, this 100 is the harder half of the sample, so these numbers likely
+*understate* pyabsa's true accuracy, not overstate it. These replace the old 33-row/78.8% figure, which
+remains permanently non-citable regardless of anything above.
 
 Windows-specific: most scripts call `sys.stdout.reconfigure(encoding="utf-8", errors="replace")` because
 the default Windows console codepage (cp1254 on Turkish Windows) crashes on Unicode review text
