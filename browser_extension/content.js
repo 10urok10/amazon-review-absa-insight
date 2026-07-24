@@ -44,6 +44,16 @@
       padding: 14px; font-size: 13px; color: #0b0b0b; display: none;
     }
     .panel.show { display: block; }
+    .panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .panel-header b { font-size: 13px; }
+    .close-btn {
+      background: none; border: none; cursor: pointer; color: #52514e;
+      font-size: 16px; line-height: 1; padding: 0 0 0 8px;
+    }
+    .close-btn:hover { color: #0b0b0b; }
     #panelStatus {
       font-size: 12px; color: #52514e; margin-bottom: 8px;
       white-space: pre-wrap; font-family: ui-monospace, monospace;
@@ -60,6 +70,10 @@
       <div class="badge" id="fabBadge" title="Bu ürün daha önce analiz edildi"></div>
     </div>
     <div class="panel" id="panel">
+      <div class="panel-header">
+        <b>🔍 Ürün İçgörüsü</b>
+        <button class="close-btn" id="closeBtn" title="Kapat">✕</button>
+      </div>
       <div id="panelStatus"></div>
       <div id="panelResult"></div>
     </div>
@@ -69,8 +83,11 @@
   const fabBtn = shadow.getElementById("fabBtn");
   const fabBadge = shadow.getElementById("fabBadge");
   const panel = shadow.getElementById("panel");
+  const closeBtn = shadow.getElementById("closeBtn");
   const panelStatus = shadow.getElementById("panelStatus");
   const panelResult = shadow.getElementById("panelResult");
+
+  closeBtn.addEventListener("click", () => panel.classList.remove("show"));
 
   chrome.runtime.sendMessage({ type: "checkCache", asin }, (resp) => {
     if (chrome.runtime.lastError) return; // backend/extension not reachable yet
@@ -81,6 +98,14 @@
   });
 
   fabBtn.addEventListener("click", async () => {
+    // Second click while the panel is already open just closes it, instead
+    // of re-scraping and re-analyzing -- click again (or reopen via the
+    // badge state) to re-run.
+    if (panel.classList.contains("show")) {
+      panel.classList.remove("show");
+      return;
+    }
+
     panel.classList.add("show");
     panelResult.innerHTML = "";
     fabBtn.disabled = true;
