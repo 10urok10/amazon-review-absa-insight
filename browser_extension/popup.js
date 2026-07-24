@@ -117,18 +117,40 @@ async function scrapeAmazonProduct() {
 }
 
 function renderResult(data) {
-  const rows = Object.entries(data.aspect_stats || {})
+  const entries = Object.entries(data.aspect_stats || {})
     .map(([aspect, c]) => [aspect, c, c.Positive + c.Neutral + c.Negative])
     .sort((a, b) => b[2] - a[2])
-    .slice(0, 10)
-    .map(
-      ([aspect, c]) => `
-        <div class="aspect-row">
-          <span>${aspect}</span>
-          <span><span class="pos">+${c.Positive}</span> &nbsp;<span class="neu">${c.Neutral}</span> &nbsp;<span class="neg">-${c.Negative}</span></span>
-        </div>`
-    )
+    .slice(0, 10);
+
+  const maxTotal = entries.length ? Math.max(...entries.map((e) => e[2])) : 1;
+
+  const bars = entries
+    .map(([aspect, c, total]) => {
+      const barWidthPct = total > 0 ? (total / maxTotal) * 100 : 0;
+      const segments = [
+        ["pos", c.Positive],
+        ["neu", c.Neutral],
+        ["neg", c.Negative],
+      ]
+        .filter(([, n]) => n > 0)
+        .map(([cls, n]) => `<div class="bar-segment ${cls}" style="width:${(n / total) * 100}%"></div>`)
+        .join("");
+      return `
+        <div class="aspect-item">
+          <div class="aspect-label" title="${aspect}">${aspect}</div>
+          <div class="aspect-track"><div class="aspect-bar" style="width:${barWidthPct}%">${segments}</div></div>
+          <div class="aspect-total">${total}</div>
+        </div>`;
+    })
     .join("");
+
+  const legend = entries.length
+    ? `<div class="chart-legend">
+        <span><span class="legend-dot" style="background:#0ca30c"></span>Positive</span>
+        <span><span class="legend-dot" style="background:#898781"></span>Neutral</span>
+        <span><span class="legend-dot" style="background:#d03b3b"></span>Negative</span>
+      </div>`
+    : "";
 
   resultEl.innerHTML = `
     <div><b>${data.title || data.asin}</b></div>
@@ -138,7 +160,8 @@ function renderResult(data) {
     </div>
     <div class="insight">🇹🇷 ${data.insight_text_tr || "(çeviri yok)"}</div>
     <div class="insight">🇬🇧 ${data.insight_text}</div>
-    <div>${rows}</div>
+    ${legend}
+    <div>${bars}</div>
   `;
 }
 
@@ -146,6 +169,7 @@ btn.addEventListener("click", async () => {
   btn.disabled = true;
   resultEl.innerHTML = "";
   statusEl.textContent = "Sayfa taranıyor (daha fazla yorum varsa otomatik yükleniyor)...";
+  const startedAt = performance.now();
 
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -182,9 +206,13 @@ btn.addEventListener("click", async () => {
       return;
     }
 
+    const totalSeconds = ((performance.now() - startedAt) / 1000).toFixed(1);
+    const timingNote = data.from_cache
+      ? `${totalSeconds}s`
+      : `${totalSeconds}s toplam, backend: ${data.backend_seconds}s`;
     statusEl.textContent = data.from_cache
-      ? `⚡ Cache'ten geldi (ilk analiz: ${data.created_at})`
-      : "✅ Yeni analiz tamamlandı";
+      ? `⚡ Cache'ten geldi (ilk analiz: ${data.created_at}) -- ${timingNote}`
+      : `✅ Yeni analiz tamamlandı -- ${timingNote}`;
     renderResult(data);
   } catch (err) {
     statusEl.textContent = `Backend'e bağlanılamadı. extension_server.py çalışıyor mu? (${err})`;

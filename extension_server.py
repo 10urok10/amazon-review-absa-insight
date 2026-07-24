@@ -14,6 +14,7 @@ Then load browser_extension/ as an unpacked extension in Chrome/Edge.
 """
 
 import sys
+import time
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -47,6 +48,7 @@ def analyze():
 
     logger.info("Analyze request: asin=%s title=%r reviews=%d", asin, title, len(reviews))
 
+    t0 = time.perf_counter()
     try:
         result = analyze_reviews_direct(asin, title, reviews, progress=print)
     except ValueError as exc:
@@ -55,6 +57,7 @@ def analyze():
     except Exception as exc:
         logger.exception("Analyze request failed for asin=%s", asin)
         return jsonify({"error": f"{type(exc).__name__}: {exc}"}), 500
+    backend_seconds = time.perf_counter() - t0
 
     return jsonify(
         {
@@ -67,6 +70,7 @@ def analyze():
             "aspect_stats": result["aspect_stats"],
             "from_cache": result["from_cache"],
             "created_at": result["created_at"],
+            "backend_seconds": round(backend_seconds, 2),
         }
     )
 

@@ -41,16 +41,58 @@
     padding: 10px;
     margin-bottom: 10px;
   }
-  .aspect-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 4px 0;
-    border-bottom: 1px solid #e1e0d9;
-    font-size: 12px;
-  }
   .pos { color: #0ca30c; font-weight: 600; }
   .neu { color: #898781; font-weight: 600; }
   .neg { color: #d03b3b; font-weight: 600; }
+
+  .chart-legend {
+    display: flex;
+    gap: 12px;
+    font-size: 11px;
+    color: #52514e;
+    margin: 10px 0 6px 0;
+  }
+  .chart-legend span { display: inline-flex; align-items: center; gap: 4px; }
+  .legend-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  .aspect-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 0;
+  }
+  .aspect-label {
+    width: 76px;
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .aspect-track {
+    flex: 1;
+    height: 14px;
+    border-radius: 3px;
+    overflow: hidden;
+    background: #e1e0d9;
+  }
+  .aspect-bar { height: 100%; display: flex; }
+  .bar-segment { height: 100%; }
+  .bar-segment.pos { background: #0ca30c; }
+  .bar-segment.neu { background: #898781; }
+  .bar-segment.neg { background: #d03b3b; }
+  .bar-segment + .bar-segment { border-left: 1px solid #fcfcfb; }
+  .aspect-total {
+    width: 18px;
+    font-size: 11px;
+    color: #52514e;
+    text-align: right;
+    flex-shrink: 0;
+  }
 </style>
 </head>
 <body>
