@@ -33,11 +33,16 @@ python extension_server.py                                      # local backend 
 # Tests
 pip install -r requirements-dev.txt
 pytest -v
+
+# Lint / format (also enforced in CI, see .github/workflows/ci.yml)
+ruff check .
+ruff format .
 ```
 
-No linter or build step configured yet. `app.log` (console + file, via `logging_config.get_logger`)
-holds operational diagnostics (retries, cache migrations, exceptions); it's separate from the
-`progress` callback used for user-facing pipeline narration in the CLI/Streamlit/extension UIs.
+`app.log` (console + file, via `logging_config.get_logger`) holds operational diagnostics (retries,
+cache migrations, exceptions); it's separate from the `progress` callback used for user-facing
+pipeline narration in the CLI/Streamlit/extension UIs. GitHub Actions CI runs ruff (lint + format
+check) and pytest on every push/PR to master, on CPU-only torch (no GPU in CI runners).
 
 ## Architecture
 
@@ -67,6 +72,13 @@ The pyabsa `AspectExtractor` is expensive to load, so it's cached as a module-le
 (`_extractor` in `insight_engine.py`) and reused across calls within a process -- do not construct a
 new one per request.
 
+`USE_FP16_INFERENCE` (`config.py`) wraps inference in `torch.autocast(device_type="cuda",
+dtype=torch.float16)` (`_inference_context()` in `insight_engine.py`) rather than a raw `.half()` cast,
+so numerically sensitive ops (softmax, layer norm) stay in FP32. Benchmarked at 1.40x throughput with
+*lower* peak GPU memory and 99.5% exact prediction match vs FP32 (see `benchmark_fp16.py`); only
+applies on CUDA. `BATCH_SIZE` (also in `config.py`) was similarly chosen via `benchmark_batch_size.py`
+on real data, not guessed -- re-run either benchmark script if you change GPUs or the checkpoint.
+
 **Data flow for the static dataset path:** `reviews_Electronics.json` (valid JSON-lines) +
 `meta_Electronics.json` (NOT valid JSON -- Python-dict-literal-per-line, requires `ast.literal_eval`;
 see `preprocess.py`'s conversion step) are joined by `preprocess.py` into
@@ -75,13 +87,46 @@ asin/title/review_count/avg_rating index (`product_index.parquet`) so the Stream
 scan 7.8M rows per keystroke.
 
 **Browser extension (`browser_extension/`, Manifest V3) is the path for products *not* in the static
-dataset.** Its content script (in `popup.js`) reads the Amazon product page's own already-rendered DOM
-in the user's authenticated browser session -- it does not make independent requests to Amazon beyond
-auto-clicking the page's own "show more reviews" button (`a[data-hook="show-more-button"]`, capped at
-`MAX_SHOW_MORE_CLICKS`), which a human reading the page would also click. Scraped review text is POSTed
-to `extension_server.py` (local Flask, port 5057, CORS-enabled for the extension origin), which calls
-the same `insight_engine.py` functions. Two DOM-scraping details that took real iteration to get right
-and will resurface if Amazon changes markup again:
+dataset, and the primary front end this project targets.** It reads the Amazon product page's own
+already-rendered DOM in the user's authenticated browser session -- it does not make independent
+requests to Amazon beyond auto-clicking the page's own "show more reviews" button
+(`a[data-hook="show-more-button"]`, capped at `MAX_SHOW_MORE_CLICKS`), which a human reading the page
+would also click.
+
+Files, and why they're split this way:
+- **`scraper.js`** -- `getAsinFromPage()` + `scrapeAmazonProduct()`. The only file that touches the
+  Amazon DOM. Shared verbatim between the toolbar popup and the in-page content script (see below) so
+  scraping logic exists in exactly one place.
+- **`render.js`** -- `renderInsightResult(container, data)` + the `RESULT_PANEL_CSS` string, building
+  the aspect bar chart HTML. Parameterized by `container` because it renders into two different DOM
+  trees: the popup's own document, and a Shadow DOM panel injected into the Amazon page (Shadow DOM
+  needs its own copy of the CSS since it's style-isolated from the host page's stylesheet).
+- **`popup.js`** / **`popup.html`** -- the toolbar-icon-triggered popup. Injects `scraper.js` into the
+  active tab via `chrome.scripting.executeScript({files: [...]})` then invokes
+  `scrapeAmazonProduct()` in a second call (the `func:` form of `executeScript` only serializes the one
+  function passed to it -- it can't see other top-level functions unless they were already injected
+  into the page first).
+- **`content.js`** -- declared in `manifest.json`'s `content_scripts` (loaded automatically alongside
+  `scraper.js`/`render.js` on any Amazon product-page URL, no toolbar click required). Injects a
+  floating "Bu Ürünü Analiz Et" button into a Shadow DOM host (`#absa-insight-host`, `all: initial` +
+  its own `<style>`, so Amazon's page CSS can't bleed in and vice versa). On load, checks whether the
+  page's ASIN is already cached and lights up a badge if so. Clicking the button opens a results panel
+  with an explicit close (X) button; clicking the button again while the panel is open toggles it
+  closed instead of re-running analysis.
+- **`background.js`** -- a Manifest V3 service worker that both `popup.js` and `content.js` message
+  (`chrome.runtime.sendMessage`) to actually perform the `fetch()` calls to `extension_server.py`.
+  Necessary specifically for `content.js`: a fetch issued directly from a content script runs inside
+  Amazon's own page origin and is subject to Amazon's page CSP (`connect-src`), which can block calls to
+  `127.0.0.1:5057` even though the extension's `host_permissions` allow it. The background worker runs
+  in the extension's own privileged context instead, sidestepping that.
+
+`extension_server.py` exposes `POST /analyze` (full pipeline, returns `backend_seconds` alongside the
+result so the UI can show real timing) and `GET /cache_status/<asin>` (SQLite-only lookup via
+`get_cached`/`init_cache_db`, no GPU/LLM call -- used for the content script's cache badge so checking
+every page load stays instant).
+
+Two DOM-scraping details in `scraper.js` that took real iteration to get right and will resurface if
+Amazon changes markup again:
 - Newer Amazon review UIs (e.g. the `/portal/customer-reviews/` page) keep `data-hook="review-body"` on
   the text span but drop the classic enclosing `<div data-hook="review">` wrapper (it's an `<li>` now,
   or absent) -- so the scraper selects `span[data-hook="review-body"]` directly and walks up parents to
@@ -90,6 +135,11 @@ and will resurface if Amazon changes markup again:
   human-readable alt text -- English phrasing ("5.0 out of 5 stars") puts the value first, Turkish
   phrasing ("5 yıldız üzerinden 5,0") puts it last, so locale changes the word order of any text-based
   parse.
+
+`manifest.json`'s `content_scripts.matches` lists Amazon TLDs explicitly (`*://*.amazon.com/*`,
+`*://*.amazon.com.tr/*`, etc.) rather than a single wildcard pattern -- Chrome's match-pattern syntax
+only allows a single leading `*.` subdomain wildcard, not a wildcard TLD, so `*://*.amazon.*/*` is
+invalid and silently matches nothing.
 
 **Legacy/experimental scripts** (`absa_pipeline.py`, `pyabsa_pipeline.py`, `eda_analysis.py`,
 `generate_annotation_batch.py`, `annotate_cli.py`) predate `insight_engine.py` and were exploratory

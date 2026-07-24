@@ -83,6 +83,9 @@ streamlit run app.py
 # Browser extension (for products not in the static dataset)
 python extension_server.py      # local backend, keep running
 # then: chrome://extensions → Developer mode → Load unpacked → select browser_extension/
+# on any Amazon product page, either click the toolbar icon, or use the floating
+# button the extension injects directly into the page (auto-badges if the
+# product is already cached)
 ```
 
 ## Testing
@@ -104,8 +107,8 @@ are not unit-tested (would require the model/network at test time) — treat
   this dataset. No rigorous accuracy evaluation exists yet — treat its output
   as a strong heuristic, not ground truth.
 - **The browser extension scrapes Amazon's rendered DOM**, which changes over
-  time; the CSS selectors in `browser_extension/popup.js` may need updating if
-  Amazon changes its review page markup.
+  time; the CSS selectors in `browser_extension/scraper.js` may need updating
+  if Amazon changes its review page markup.
 - **Aspect synonym mapping (`SYNONYM_MAP` in `insight_engine.py`) is a small,
   manually curated list** — related terms not in it are counted as distinct
   aspects.
@@ -113,4 +116,4 @@ are not unit-tested (would require the model/network at test time) — treat
 ## Stack
 
 polars · pyabsa (ATEPC) · PyTorch (CUDA) · Gemini API · Streamlit · Altair ·
-Flask · SQLite · Manifest V3 browser extension
+Flask · SQLite · Manifest V3 browser extension · ruff · pytest · GitHub Actions
